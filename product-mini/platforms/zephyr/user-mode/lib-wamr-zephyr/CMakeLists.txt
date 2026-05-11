@@ -57,6 +57,12 @@ zephyr_library_sources (
   wamr_lib.c
 )
 
+# Suppress -Wtype-limits warnings originating from Zephyr's own headers
+# (e.g. net_if.h:861 "comparison is always true due to limited range of data type").
+# These are pulled in transitively via platform_internal.h → net_pkt.h → net_if.h
+# and cannot be fixed in WAMR source code.
+zephyr_library_compile_options(-Wno-type-limits)
+
 # Ensure generated headers (e.g. heap_constants.h) are ready before compiling
 # the library. Zephyr adds this dependency for its own libraries automatically,
 # but parallel builds can race when the library is added via add_subdirectory.

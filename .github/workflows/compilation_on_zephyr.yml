@@ -57,6 +57,34 @@ permissions:
 jobs:
   smoke_test:
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # -- Architecture --
+        arch:
+          - name: ARC
+            board: qemu_arc/qemu_arc_hs
+            target: ARC
+            toolchains: arc-zephyr-elf:arc64-zephyr-elf
+          - name: x86-32
+            board: qemu_x86
+            target: X86_32
+            toolchains: x86_64-zephyr-elf
+        # -- Sample variant --
+        sample:
+          - name: simple
+            path: simple
+            extra_cmake: ""
+            verify: '"Hello world!" "elapsed"'
+          - name: user-mode
+            path: user-mode
+            extra_cmake: ""
+            verify: '"Hello world!" "elapsed"'
+          - name: user-mode prebuilt
+            path: user-mode
+            extra_cmake: "-DWAMR_USE_PREBUILT_LIB=1"
+            verify: '"Hello world!" "elapsed"'
+    name: ${{ matrix.sample.name }} (${{ matrix.arch.name }})
     container:
       # For Zephyr 3.7 LTS, use the v0.26-branch or the latest v0.26.x release Docker image.
       # ci require a larger runner to avoid "no space left on device"
@@ -94,50 +122,16 @@ jobs:
           app-path: application
           manifest-file-name: west_lite.yml
           sdk-version: ${{ env.ZEPHYR_SDK_VERSION }}
-          toolchains: arc-zephyr-elf:arc64-zephyr-elf
+          toolchains: ${{ matrix.arch.toolchains }}
 
-      - name: Build a sample application(simple)
+      - name: Build and run
         shell: bash
         run: |
-          pushd product-mini/platforms/zephyr/simple
-          west build . -b qemu_arc/qemu_arc_hs  -p always -- -DWAMR_BUILD_TARGET=ARC
+          pushd product-mini/platforms/zephyr/${{ matrix.sample.path }}
+          west build . -b ${{ matrix.arch.board }} -p always -- \
+            -DWAMR_BUILD_TARGET=${{ matrix.arch.target }} ${{ matrix.sample.extra_cmake }}
           popd
 
-          # west build -t run will fork several processes, which will cause the job to hang.
-          # run in the background and kill it after 5 seconds
-          .github/scripts/run_qemu_arc.sh \
-            ../../zephyr-sdk \
-            product-mini/platforms/zephyr/simple/build/zephyr/zephyr.elf &
-          sleep 5
-          pkill qemu-system-arc
-        working-directory: modules/wasm-micro-runtime
-
-      - name: Build a sample application(user-mode)
-        shell: bash
-        run: |
-          pushd product-mini/platforms/zephyr/user-mode
-          west build . -b qemu_arc/qemu_arc_hs -p always -- -DWAMR_BUILD_TARGET=ARC
-          popd
-
-          # west build -t run will fork several processes, which will cause the job to hang.
-          # run in the background and kill it after 5 seconds
-          .github/scripts/run_qemu_arc.sh \
-            ../../zephyr-sdk \
-            product-mini/platforms/zephyr/user-mode/build/zephyr/zephyr.elf &
-          sleep 5
-          pkill qemu-system-arc
-        working-directory: modules/wasm-micro-runtime
-
-      - name: Build a sample application(user-mode, prebuilt library approach)
-        shell: bash
-        run: |
-          pushd product-mini/platforms/zephyr/user-mode
-          west build . -b qemu_arc/qemu_arc_hs -p always -- -DWAMR_BUILD_TARGET=ARC -DWAMR_USE_PREBUILT_LIB=1
-          popd
-
-          .github/scripts/run_qemu_arc.sh \
-            ../../zephyr-sdk \
-            product-mini/platforms/zephyr/user-mode/build/zephyr/zephyr.elf &
-          sleep 5
-          pkill qemu-system-arc
+          .github/scripts/run_qemu_and_verify.sh \
+            product-mini/platforms/zephyr/${{ matrix.sample.path }}/build 10 ${{ matrix.sample.verify }}
         working-directory: modules/wasm-micro-runtime

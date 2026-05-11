@@ -59,3 +59,8 @@ target_sources(app PRIVATE
                ${WAMR_RUNTIME_LIB_SOURCE}
                src/main.c)
 
+# Suppress -Wtype-limits warnings originating from Zephyr's own headers
+# (e.g. net_if.h "comparison is always true due to limited range of data type").
+# Pulled in transitively via platform_internal.h → net_pkt.h → net_if.h.
+target_compile_options(app PRIVATE -Wno-type-limits)
+
