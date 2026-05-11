@@ -64,4 +64,20 @@ add_executable(shared_heap_test ${unit_test_sources})
 
 target_link_libraries(shared_heap_test gtest_main)
 
+# Copy wasm/aot files from ExternalProject build dirs to the test working directory
+set(WASM_APPS_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/shared_heap_wasm_apps-prefix/src/shared_heap_wasm_apps-build)
+add_custom_command(TARGET shared_heap_test POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${WASM_APPS_BUILD_DIR}/test.wasm
+            ${WASM_APPS_BUILD_DIR}/test.aot
+            ${WASM_APPS_BUILD_DIR}/test_chain.aot
+            ${WASM_APPS_BUILD_DIR}/test_addr_conv.wasm
+            ${WASM_APPS_BUILD_DIR}/test_addr_conv.aot
+            ${WASM_APPS_BUILD_DIR}/test_addr_conv_chain.aot
+            ${WASM_APPS_BUILD_DIR}/test_sandbox.wasm
+            ${WASM_APPS_BUILD_DIR}/test_runtime.wasm
+            ${CMAKE_CURRENT_BINARY_DIR}
+    COMMENT "Copying wasm/aot test files to test working directory"
+)
+
 gtest_discover_tests(shared_heap_test)
