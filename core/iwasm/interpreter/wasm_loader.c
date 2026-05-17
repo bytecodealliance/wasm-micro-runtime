@@ -12361,6 +12361,19 @@ re_scan:
                 uint32 tag_index = 0;
                 pb_read_leb_int32(p, p_end, tag_index);
 
+#if WASM_ENABLE_FAST_INTERP != 0
+                /* Fast-interp: the LEB-encoded tag_index from the source
+                 * bytecode is consumed above; re-emit it as a plain
+                 * uint32 immediate after the (auto-emitted) THROW opcode
+                 * so the runtime handler can read it without re-running
+                 * the LEB decoder. The runtime currently treats the tag
+                 * as opaque (it surfaces a generic "wasm exception
+                 * thrown (tag N)" string via wasm_set_exception and
+                 * escapes via got_exception). Same emit shape as
+                 * WASM_OP_CALL's funcidx. */
+                emit_uint32(loader_ctx, tag_index);
+#endif
+
                 /* check validity of tag_index against module->tag_count */
                 /* check tag index is within the tag index space */
                 if (tag_index >= module->import_tag_count + module->tag_count) {
