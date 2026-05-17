@@ -1836,14 +1836,56 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             }
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
+            HANDLE_OP(WASM_OP_THROW)
+            {
+                /* The loader emits the tag index as a uint32 immediate
+                 * after the THROW opcode (see WASM_OP_THROW in
+                 * wasm_loader.c::wasm_loader_prepare_bytecode). Read it,
+                 * surface a tag-bearing exception, and escape to the
+                 * caller via got_exception — the existing trap-bailout
+                 * path is exactly what an uncaught wasm exception
+                 * should do.
+                 *
+                 * Same-function try/catch handlers are NOT implemented
+                 * yet: the loader skips emitting TRY/CATCH/CATCH_ALL/
+                 * DELEGATE into the fast-interp IR, so a throw inside a
+                 * try-block currently still escapes to the caller
+                 * (where the host can observe it via
+                 * wasm_runtime_get_exception). That matches the only
+                 * shape the wild emits today — Porffor's JS-to-wasm
+                 * compiler emits ~hundreds of throws and zero in-wasm
+                 * try/catch handlers in our test corpus. Full
+                 * in-function try/catch lowering is the natural
+                 * follow-up. */
+                uint32 exception_tag_index = read_uint32(frame_ip);
+                {
+                    char exception_buf[64];
+                    snprintf(exception_buf, sizeof(exception_buf),
+                             "wasm exception thrown (tag %u)",
+                             exception_tag_index);
+                    wasm_set_exception(module, exception_buf);
+                }
+                goto got_exception;
+            }
+
             HANDLE_OP(WASM_OP_TRY)
             HANDLE_OP(WASM_OP_CATCH)
-            HANDLE_OP(WASM_OP_THROW)
             HANDLE_OP(WASM_OP_RETHROW)
             HANDLE_OP(WASM_OP_DELEGATE)
             HANDLE_OP(WASM_OP_CATCH_ALL)
             HANDLE_OP(EXT_OP_TRY)
             {
+                /* The loader's fast-interp emit path treats TRY as a
+                 * plain block (skip_label) and doesn't emit CATCH /
+                 * CATCH_ALL / DELEGATE / EXT_OP_TRY into the IR at all
+                 * — they only fire if a future loader change starts
+                 * emitting them. Keep the diagnostic so misbehaving
+                 * loader paths surface immediately instead of silently
+                 * dropping bytes. RETHROW is the only one we'd hit on
+                 * well-formed input today, and only if a same-function
+                 * catch handler caught a throw and re-raised it; we
+                 * treat it as "unsupported" pending in-function catch
+                 * lowering. */
                 wasm_set_exception(module, "unsupported opcode");
                 goto got_exception;
             }
