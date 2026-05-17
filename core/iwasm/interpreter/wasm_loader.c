@@ -12353,26 +12353,21 @@ re_scan:
                 }
 #if WASM_ENABLE_EXCE_HANDLING != 0
                 else if (opcode == WASM_OP_TRY) {
-                    /* TRY is a control-flow block in the source bytecode
-                     * but produces no operand-stack work itself; like
-                     * BLOCK and LOOP we strip the label from the
-                     * rewritten IR. The TRY's runtime effects (pushing
-                     * an EH frame, identifying which catch handlers are
-                     * in scope) are reached via the per-function
-                     * exception_handlers[] table populated below — the
-                     * runtime dispatch never reads a separate TRY
-                     * opcode at all. */
-                    skip_label();
-
-                    /* Claim the next entry in exception_handlers[] for
-                     * this try-region and remember the index on the
-                     * loader CSP so subsequent CATCH / CATCH_ALL /
-                     * DELEGATE / END opcodes for this region (and any
-                     * nested ones) can resolve back to it. */
+                    /* The auto-emit_label at the top of the dispatch
+                     * loop already wrote the WASM_OP_TRY byte into the
+                     * rewritten IR; the runtime handler for that
+                     * opcode (HANDLE_OP(WASM_OP_TRY) in
+                     * wasm_interp_fast.c) reads the uint32 eh_idx
+                     * immediate we emit below and pushes one entry
+                     * onto the per-frame eh-stack. Unlike BLOCK / LOOP,
+                     * we keep the opcode in the IR — its runtime
+                     * effect (push) is what makes throws find the
+                     * right catches. */
                     bh_assert(loader_ctx->cur_eh_entry_idx
                               < func->exception_handler_count);
                     (loader_ctx->frame_csp - 1)->eh_entry_idx =
                         loader_ctx->cur_eh_entry_idx;
+                    emit_uint32(loader_ctx, loader_ctx->cur_eh_entry_idx);
                     loader_ctx->cur_eh_entry_idx++;
                 }
 #endif
@@ -12659,15 +12654,16 @@ re_scan:
                 }
 
 #if WASM_ENABLE_FAST_INTERP != 0
-                /* Second traverse only: append (tag_index, handler_pc)
-                 * to the parent try-region's catches[]. The handler PC
-                 * is the first rewritten-IR byte after the CATCH
-                 * opcode, which is what the runtime catch dispatch will
-                 * branch to when a throw matches `tag_index`. The CATCH
-                 * opcode itself remains in the IR for now — the runtime
-                 * still routes it through the "unsupported opcode" stub
-                 * (a follow-up commit wires up the runtime EH-frame
-                 * stack and converts CATCH into a real handler). */
+                /* Second traverse: emit `<eh_idx:u32>` after the auto-
+                 * emitted CATCH opcode and record (tag_index,
+                 * handler_pc) on the parent try-region's catches[].
+                 * handler_pc is the first rewritten-IR byte *after*
+                 * the eh_idx immediate — that's where the runtime
+                 * throw dispatch (follow-up commit) jumps when a
+                 * matching tag is caught. The CATCH op itself only
+                 * runs on *normal-flow* fall-through, in which case
+                 * the runtime handler pops one eh-stack entry and
+                 * branches to end_of_region_pc. */
                 if (loader_ctx->p_code_compiled != NULL) {
                     uint32 eh_idx = cur_block->eh_entry_idx;
                     WASMFastEHEntry *entry;
@@ -12675,6 +12671,7 @@ re_scan:
                     uint64 new_size;
                     bh_assert(eh_idx < func->exception_handler_count);
                     bh_assert(func->exception_handlers != NULL);
+                    emit_uint32(loader_ctx, eh_idx);
                     entry = &func->exception_handlers[eh_idx];
                     new_size = (uint64)sizeof(WASMFastEHCatch)
                                * (entry->catch_count + 1);
@@ -12741,17 +12738,20 @@ re_scan:
                 }
 
 #if WASM_ENABLE_FAST_INTERP != 0
-                /* Second traverse only: record this clause's handler PC
-                 * on the parent try-region. Mirrors the CATCH path
-                 * above. catch_all_pc starts NULL (zero-init from
-                 * loader_malloc) and is set exactly once per region —
-                 * the wasm spec allows at most one catch_all per try. */
+                /* Second traverse: emit `<eh_idx:u32>` after the auto-
+                 * emitted CATCH_ALL opcode and record catch_all_pc on
+                 * the parent try-region. catch_all_pc starts NULL
+                 * (zero-init from loader_malloc) and is set exactly
+                 * once per region — the wasm spec allows at most one
+                 * catch_all per try. handler_pc points after the
+                 * eh_idx immediate, same shape as a typed CATCH. */
                 if (loader_ctx->p_code_compiled != NULL) {
                     uint32 eh_idx = cur_block->eh_entry_idx;
                     bh_assert(eh_idx < func->exception_handler_count);
                     bh_assert(func->exception_handlers != NULL);
                     bh_assert(func->exception_handlers[eh_idx].catch_all_pc
                               == NULL);
+                    emit_uint32(loader_ctx, eh_idx);
                     func->exception_handlers[eh_idx].catch_all_pc =
                         loader_ctx->p_code_compiled;
                 }
@@ -12882,30 +12882,62 @@ re_scan:
                 POP_CSP();
 
 #if WASM_ENABLE_FAST_INTERP != 0
-                skip_label();
-                /* copy the result to the block return address */
-                if (!reserve_block_ret(loader_ctx, opcode, disable_emit,
-                                       error_buf, error_buf_size)) {
-                    /* it could be tmp frame_csp allocated from opcode like
-                     * OP_BR and not counted in loader_ctx->csp_num, it won't
-                     * be freed in wasm_loader_ctx_destroy(loader_ctx) so need
-                     * to free the loader_ctx->frame_csp if fails */
+#if WASM_ENABLE_EXCE_HANDLING != 0
+                if (ending_was_eh) {
+                    /* try-region END must execute the eh-stack pop in
+                     * the runtime END handler — including when reached
+                     * via `br N` (whose target was registered into
+                     * this block's PATCH_END list by emit_br_info).
+                     *
+                     * Rewind the auto-emitted END byte, point all
+                     * PATCH_END entries at the rewound position, then
+                     * re-emit the END byte so both branches and fall-
+                     * through dispatch the pop. reserve_block_ret's
+                     * COPY (if any) lands *after* the END byte: the
+                     * pop only adjusts eh_count and doesn't touch the
+                     * operand stack the COPY moves from. */
+                    skip_label();
+                    apply_label_patch(loader_ctx, 0, PATCH_END);
+                    emit_label(WASM_OP_END);
+                    if (!reserve_block_ret(loader_ctx, opcode, disable_emit,
+                                           error_buf, error_buf_size)) {
+                        free_label_patch_list(loader_ctx->frame_csp);
+                        goto fail;
+                    }
                     free_label_patch_list(loader_ctx->frame_csp);
-                    goto fail;
+                    /* A try-region's END can never coincide with
+                     * LABEL_TYPE_FUNCTION (the implicit function block
+                     * is not a try); no WASM_OP_RETURN emit needed. */
                 }
+                else
+#endif /* WASM_ENABLE_EXCE_HANDLING */
+                {
+                    skip_label();
+                    /* copy the result to the block return address */
+                    if (!reserve_block_ret(loader_ctx, opcode, disable_emit,
+                                           error_buf, error_buf_size)) {
+                        /* it could be tmp frame_csp allocated from opcode like
+                         * OP_BR and not counted in loader_ctx->csp_num, it
+                         * won't be freed in wasm_loader_ctx_destroy(loader_ctx)
+                         * so need to free the loader_ctx->frame_csp if fails */
+                        free_label_patch_list(loader_ctx->frame_csp);
+                        goto fail;
+                    }
 
-                apply_label_patch(loader_ctx, 0, PATCH_END);
-                free_label_patch_list(loader_ctx->frame_csp);
-                if (loader_ctx->frame_csp->label_type == LABEL_TYPE_FUNCTION) {
-                    int32 idx;
-                    uint8 ret_type;
+                    apply_label_patch(loader_ctx, 0, PATCH_END);
+                    free_label_patch_list(loader_ctx->frame_csp);
+                    if (loader_ctx->frame_csp->label_type
+                        == LABEL_TYPE_FUNCTION) {
+                        int32 idx;
+                        uint8 ret_type;
 
-                    emit_label(WASM_OP_RETURN);
-                    for (idx = (int32)func->func_type->result_count - 1;
-                         idx >= 0; idx--) {
-                        ret_type = *(func->func_type->types
-                                     + func->func_type->param_count + idx);
-                        POP_OFFSET_TYPE(ret_type);
+                        emit_label(WASM_OP_RETURN);
+                        for (idx = (int32)func->func_type->result_count - 1;
+                             idx >= 0; idx--) {
+                            ret_type = *(func->func_type->types
+                                         + func->func_type->param_count + idx);
+                            POP_OFFSET_TYPE(ret_type);
+                        }
                     }
                 }
 #endif

@@ -1869,23 +1869,67 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             }
 
             HANDLE_OP(WASM_OP_TRY)
+            {
+                /* Loader emits `WASM_OP_TRY <eh_idx:u32>`. Push one
+                 * entry onto the per-frame eh-stack so subsequent
+                 * THROW/RETHROW handlers (added in follow-up commits)
+                 * can find the in-scope catches by walking it.
+                 *
+                 * The eh-stack lives in the trailing cells of
+                 * frame->operand[] — one cell per try-region, sized
+                 * by cur_wasm_func->exception_handler_count at frame
+                 * setup. Cost: 1 indexed store + 1 increment, both
+                 * on a cold path; CALL / LOAD / STORE are untouched. */
+                uint32 eh_idx = read_uint32(frame_ip);
+                WASMFunction *cur_wasm_func = cur_func->u.func;
+                uint32 *eh_stack = frame_lp + cur_func->param_cell_num
+                                   + cur_func->local_cell_num
+                                   + cur_wasm_func->max_stack_cell_num;
+                bh_assert(frame->eh_count
+                          < cur_wasm_func->exception_handler_count);
+                eh_stack[frame->eh_count] = eh_idx;
+                frame->eh_count++;
+                HANDLE_OP_END();
+            }
+
             HANDLE_OP(WASM_OP_CATCH)
+            HANDLE_OP(WASM_OP_CATCH_ALL)
+            {
+                /* Loader emits `<opcode> <eh_idx:u32>` (commit 1's
+                 * exception_handlers table records each catch body's
+                 * pc and the region's end_of_region_pc).
+                 *
+                 * Reached via *normal flow* — execution either ran the
+                 * try body to completion (CATCH is the first opcode
+                 * after the try body) or fell through from a previous
+                 * catch body. Either way: pop one eh-stack entry and
+                 * branch past the try-region's end. The THROW dispatch
+                 * (follow-up commit) jumps directly to a catch body's
+                 * first opcode, *skipping* the CATCH opcode itself, so
+                 * this handler never runs as a result of a caught
+                 * throw — only as a fall-through exit. */
+                uint32 eh_idx = read_uint32(frame_ip);
+                WASMFunction *cur_wasm_func = cur_func->u.func;
+                bh_assert(eh_idx < cur_wasm_func->exception_handler_count);
+                bh_assert(frame->eh_count > 0);
+                frame->eh_count--;
+                frame_ip =
+                    cur_wasm_func->exception_handlers[eh_idx].end_of_region_pc;
+                HANDLE_OP_END();
+            }
+
             HANDLE_OP(WASM_OP_RETHROW)
             HANDLE_OP(WASM_OP_DELEGATE)
-            HANDLE_OP(WASM_OP_CATCH_ALL)
             HANDLE_OP(EXT_OP_TRY)
             {
-                /* The loader's fast-interp emit path treats TRY as a
-                 * plain block (skip_label) and doesn't emit CATCH /
-                 * CATCH_ALL / DELEGATE / EXT_OP_TRY into the IR at all
-                 * — they only fire if a future loader change starts
-                 * emitting them. Keep the diagnostic so misbehaving
-                 * loader paths surface immediately instead of silently
-                 * dropping bytes. RETHROW is the only one we'd hit on
-                 * well-formed input today, and only if a same-function
-                 * catch handler caught a throw and re-raised it; we
-                 * treat it as "unsupported" pending in-function catch
-                 * lowering. */
+                /* Still routed through the diagnostic until a follow-
+                 * up commit wires up rethrow / delegate dispatch.
+                 * EXT_OP_TRY is the type-index-blocktype variant of
+                 * TRY; the fast-interp loader currently doesn't emit
+                 * it (CATCH / DELEGATE indices are recorded directly
+                 * on the per-function exception_handlers table), so
+                 * hitting it here means a future loader change
+                 * started emitting it. */
                 wasm_set_exception(module, "unsupported opcode");
                 goto got_exception;
             }
@@ -7568,9 +7612,31 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         HANDLE_OP(WASM_OP_GET_LOCAL)
         HANDLE_OP(WASM_OP_DROP)
         HANDLE_OP(WASM_OP_DROP_64)
+#if WASM_ENABLE_EXCE_HANDLING != 0
+        HANDLE_OP(WASM_OP_END)
+        {
+            /* Block / loop / if / function-level `end` is stripped from
+             * the IR at load time (skip_label in the END case of
+             * wasm_loader_prepare_bytecode). Only try-region `end`s
+             * survive — the loader keeps them so the runtime can pop
+             * the matching eh-stack entry here when control falls
+             * through the bottom of a catch body (or runs the body of
+             * a catchless `try ... end`).
+             *
+             * Cost: one decrement on a cold path. CALL / LOAD / STORE
+             * are untouched. */
+            bh_assert(frame->eh_count > 0);
+            frame->eh_count--;
+            HANDLE_OP_END();
+        }
+
+        HANDLE_OP(WASM_OP_BLOCK)
+        HANDLE_OP(WASM_OP_LOOP)
+#else
         HANDLE_OP(WASM_OP_BLOCK)
         HANDLE_OP(WASM_OP_LOOP)
         HANDLE_OP(WASM_OP_END)
+#endif
         HANDLE_OP(WASM_OP_NOP)
         HANDLE_OP(EXT_OP_BLOCK)
         HANDLE_OP(EXT_OP_LOOP)
@@ -7777,6 +7843,15 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             local_cell_num =
                 cur_func->param_cell_num + cur_func->local_cell_num;
 #endif
+#if WASM_ENABLE_EXCE_HANDLING != 0
+            /* One cell per try-region in the function, appended past
+             * the value stack. Used by the WASM_OP_TRY / CATCH /
+             * CATCH_ALL / END / THROW handlers as a small per-frame
+             * eh-stack; functions without try blocks pay zero cells.
+             * Mirrors classic-interp's eh_size accounting at
+             * wasm_interp_classic.c:6786. */
+            all_cell_num += cur_wasm_func->exception_handler_count;
+#endif
             /* param_cell_num, local_cell_num, const_cell_num and
                max_stack_cell_num are all no larger than UINT16_MAX (checked
                in loader), all_cell_num must be smaller than 1MB */
@@ -7792,6 +7867,11 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             frame->function = cur_func;
             frame_ip = wasm_get_func_code(cur_func);
             frame_ip_end = wasm_get_func_code_end(cur_func);
+
+#if WASM_ENABLE_EXCE_HANDLING != 0
+            /* eh-stack starts empty; WASM_OP_TRY appends entries. */
+            frame->eh_count = 0;
+#endif
 
             frame_lp = frame->lp =
                 frame->operand + cur_wasm_func->const_cell_num;
