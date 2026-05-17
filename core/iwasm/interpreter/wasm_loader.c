@@ -7368,6 +7368,23 @@ wasm_loader_unload(WASMModule *module)
                     wasm_runtime_free(module->functions[i]->code_compiled);
                 if (module->functions[i]->consts)
                     wasm_runtime_free(module->functions[i]->consts);
+#if WASM_ENABLE_EXCE_HANDLING != 0
+                if (module->functions[i]->exception_handlers) {
+                    uint32 eh_idx;
+                    for (eh_idx = 0;
+                         eh_idx < module->functions[i]->exception_handler_count;
+                         eh_idx++) {
+                        if (module->functions[i]
+                                ->exception_handlers[eh_idx]
+                                .catches) {
+                            wasm_runtime_free(module->functions[i]
+                                                  ->exception_handlers[eh_idx]
+                                                  .catches);
+                        }
+                    }
+                    wasm_runtime_free(module->functions[i]->exception_handlers);
+                }
+#endif /* end of WASM_ENABLE_EXCE_HANDLING */
 #endif
 #if WASM_ENABLE_FAST_JIT != 0
                 if (module->functions[i]->fast_jit_jitted_code) {
@@ -8478,6 +8495,14 @@ typedef struct BranchBlock {
      * to copy the stack operands to the loop block's arguments in
      * wasm_loader_emit_br_info for opcode br. */
     uint16 start_dynamic_offset;
+#if WASM_ENABLE_EXCE_HANDLING != 0
+    /* For LABEL_TYPE_TRY/CATCH/CATCH_ALL: index into
+     * func->exception_handlers (the same index across the whole try-
+     * catch-end region — a CATCH clause inherits its parent TRY's
+     * index when the loader rewrites the block label). UINT32_MAX
+     * for non-EH label types. */
+    uint32 eh_entry_idx;
+#endif
 #endif
 
     /* Indicate the operand stack is in polymorphic state.
@@ -8559,6 +8584,13 @@ typedef struct WASMLoaderContext {
      * than the final code_compiled_size, we record the peak size to ensure
      * there will not be invalid memory access during second traverse */
     uint32 code_compiled_peak_size;
+#if WASM_ENABLE_EXCE_HANDLING != 0
+    /* Index of the next entry to claim in func->exception_handlers,
+     * during the second traverse only (the first traverse merely counts
+     * try-blocks into func->exception_handler_count to size the array).
+     * Reset to 0 in wasm_loader_ctx_reinit. */
+    uint32 cur_eh_entry_idx;
+#endif
 #endif
 } WASMLoaderContext;
 
@@ -8830,6 +8862,11 @@ wasm_loader_ctx_init(WASMFunction *func, char *error_buf, uint32 error_buf_size)
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
     func->exception_handler_count = 0;
+#if WASM_ENABLE_FAST_INTERP != 0
+    /* Allocated at the start of the second traverse, once
+     * exception_handler_count is known from the first traverse. */
+    func->exception_handlers = NULL;
+#endif
 #endif
 
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -9352,6 +9389,12 @@ wasm_loader_push_frame_csp(WASMLoaderContext *ctx, uint8 label_type,
 #if WASM_ENABLE_FAST_INTERP != 0
     ctx->frame_csp->dynamic_offset = ctx->dynamic_offset;
     ctx->frame_csp->patch_list = NULL;
+#if WASM_ENABLE_EXCE_HANDLING != 0
+    /* Default sentinel; the WASM_OP_TRY handler patches this on entry
+     * and the CATCH/CATCH_ALL handlers propagate it onto the rewritten
+     * label. */
+    ctx->frame_csp->eh_entry_idx = UINT32_MAX;
+#endif
 #endif
     ctx->frame_csp++;
     ctx->csp_num++;
@@ -9574,6 +9617,13 @@ wasm_loader_ctx_reinit(WASMLoaderContext *ctx)
 
     /* init preserved local offsets */
     ctx->preserved_local_offset = ctx->max_dynamic_offset;
+
+#if WASM_ENABLE_EXCE_HANDLING != 0
+    /* Start of the second traverse — reset the per-function try-block
+     * cursor so it tracks the same source-order index as the first
+     * traverse used to size func->exception_handlers. */
+    ctx->cur_eh_entry_idx = 0;
+#endif
 
     /* const buf is reserved */
     return true;
@@ -11969,6 +12019,27 @@ re_scan:
                 loader_ctx->i32_const_num = k;
             }
         }
+
+#if WASM_ENABLE_EXCE_HANDLING != 0
+        /* The first traverse counted `func->exception_handler_count`
+         * try-blocks; the second traverse is about to populate one
+         * entry per try-block in source order. Allocate the array now
+         * (zero-initialized) and reset delegate_target_depth to the
+         * "no delegate" sentinel on every entry. */
+        if (func->exception_handler_count > 0) {
+            uint64 eh_size =
+                (uint64)sizeof(WASMFastEHEntry) * func->exception_handler_count;
+            uint32 eh_i;
+            if (!(func->exception_handlers =
+                      loader_malloc(eh_size, error_buf, error_buf_size))) {
+                goto fail;
+            }
+            for (eh_i = 0; eh_i < func->exception_handler_count; eh_i++) {
+                func->exception_handlers[eh_i].delegate_target_depth =
+                    UINT32_MAX;
+            }
+        }
+#endif
     }
 #endif
 
@@ -12019,11 +12090,17 @@ re_scan:
 #if WASM_ENABLE_EXCE_HANDLING != 0
             case WASM_OP_TRY:
                 if (opcode == WASM_OP_TRY) {
-                    /*
-                     * keep track of exception handlers to account for
-                     * memory allocation
-                     */
+#if WASM_ENABLE_FAST_INTERP != 0
+                    /* Two-traverse loader: the first traverse counts
+                     * try-blocks into func->exception_handler_count so
+                     * the second traverse can allocate the per-function
+                     * exception_handlers[] table (see re_scan block). */
+                    if (loader_ctx->p_code_compiled == NULL)
+                        func->exception_handler_count++;
+#else
+                    /* Single-traverse classic-interp / shared loader. */
                     func->exception_handler_count++;
+#endif
 
                     /*
                      * try is a block
@@ -12284,7 +12361,27 @@ re_scan:
                 }
 #if WASM_ENABLE_EXCE_HANDLING != 0
                 else if (opcode == WASM_OP_TRY) {
+                    /* TRY is a control-flow block in the source bytecode
+                     * but produces no operand-stack work itself; like
+                     * BLOCK and LOOP we strip the label from the
+                     * rewritten IR. The TRY's runtime effects (pushing
+                     * an EH frame, identifying which catch handlers are
+                     * in scope) are reached via the per-function
+                     * exception_handlers[] table populated below — the
+                     * runtime dispatch never reads a separate TRY
+                     * opcode at all. */
                     skip_label();
+
+                    /* Claim the next entry in exception_handlers[] for
+                     * this try-region and remember the index on the
+                     * loader CSP so subsequent CATCH / CATCH_ALL /
+                     * DELEGATE / END opcodes for this region (and any
+                     * nested ones) can resolve back to it. */
+                    bh_assert(loader_ctx->cur_eh_entry_idx
+                              < func->exception_handler_count);
+                    (loader_ctx->frame_csp - 1)->eh_entry_idx =
+                        loader_ctx->cur_eh_entry_idx;
+                    loader_ctx->cur_eh_entry_idx++;
                 }
 #endif
                 else if (opcode == WASM_OP_IF) {
@@ -12506,6 +12603,21 @@ re_scan:
                 uint8 label_type = cur_block->label_type;
 
                 (void)label_type;
+#if WASM_ENABLE_FAST_INTERP != 0
+                /* Second traverse only: a `delegate N` closes the try
+                 * region and forwards uncaught exceptions to an outer
+                 * block. Record end_of_region_pc now — the actual depth
+                 * is wired up by a follow-up commit (the runtime can't
+                 * dispatch through delegate_target_depth until the
+                 * EH-frame stack exists). */
+                if (loader_ctx->p_code_compiled != NULL) {
+                    uint32 eh_idx = cur_block->eh_entry_idx;
+                    bh_assert(eh_idx < func->exception_handler_count);
+                    bh_assert(func->exception_handlers != NULL);
+                    func->exception_handlers[eh_idx].end_of_region_pc =
+                        loader_ctx->p_code_compiled;
+                }
+#endif
                 /* DELEGATE ends the block */
                 POP_CSP();
                 break;
@@ -12554,6 +12666,45 @@ re_scan:
                     goto fail;
                 }
 
+#if WASM_ENABLE_FAST_INTERP != 0
+                /* Second traverse only: append (tag_index, handler_pc)
+                 * to the parent try-region's catches[]. The handler PC
+                 * is the first rewritten-IR byte after the CATCH
+                 * opcode, which is what the runtime catch dispatch will
+                 * branch to when a throw matches `tag_index`. The CATCH
+                 * opcode itself remains in the IR for now — the runtime
+                 * still routes it through the "unsupported opcode" stub
+                 * (a follow-up commit wires up the runtime EH-frame
+                 * stack and converts CATCH into a real handler). */
+                if (loader_ctx->p_code_compiled != NULL) {
+                    uint32 eh_idx = cur_block->eh_entry_idx;
+                    WASMFastEHEntry *entry;
+                    WASMFastEHCatch *new_catches;
+                    uint64 new_size;
+                    bh_assert(eh_idx < func->exception_handler_count);
+                    bh_assert(func->exception_handlers != NULL);
+                    entry = &func->exception_handlers[eh_idx];
+                    new_size = (uint64)sizeof(WASMFastEHCatch)
+                               * (entry->catch_count + 1);
+                    if (!(new_catches = loader_malloc(new_size, error_buf,
+                                                      error_buf_size))) {
+                        goto fail;
+                    }
+                    if (entry->catches) {
+                        bh_memcpy_s(new_catches, (uint32)new_size,
+                                    entry->catches,
+                                    (uint32)sizeof(WASMFastEHCatch)
+                                        * entry->catch_count);
+                        wasm_runtime_free(entry->catches);
+                    }
+                    new_catches[entry->catch_count].tag_index = tag_index;
+                    new_catches[entry->catch_count].handler_pc =
+                        loader_ctx->p_code_compiled;
+                    entry->catches = new_catches;
+                    entry->catch_count++;
+                }
+#endif
+
                 /*
                  * replace frame_csp by LABEL_TYPE_CATCH
                  */
@@ -12596,6 +12747,23 @@ re_scan:
                                   "Unexpected block sequence encountered.");
                     goto fail;
                 }
+
+#if WASM_ENABLE_FAST_INTERP != 0
+                /* Second traverse only: record this clause's handler PC
+                 * on the parent try-region. Mirrors the CATCH path
+                 * above. catch_all_pc starts NULL (zero-init from
+                 * loader_malloc) and is set exactly once per region —
+                 * the wasm spec allows at most one catch_all per try. */
+                if (loader_ctx->p_code_compiled != NULL) {
+                    uint32 eh_idx = cur_block->eh_entry_idx;
+                    bh_assert(eh_idx < func->exception_handler_count);
+                    bh_assert(func->exception_handlers != NULL);
+                    bh_assert(func->exception_handlers[eh_idx].catch_all_pc
+                              == NULL);
+                    func->exception_handlers[eh_idx].catch_all_pc =
+                        loader_ctx->p_code_compiled;
+                }
+#endif
 
                 /* no immediates */
                 /* replace frame_csp by LABEL_TYPE_CATCH_ALL */
@@ -12680,6 +12848,22 @@ re_scan:
             case WASM_OP_END:
             {
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
+#if WASM_ENABLE_FAST_INTERP != 0 && WASM_ENABLE_EXCE_HANDLING != 0
+                /* If this END closes a try-region (LABEL_TYPE_TRY when
+                 * the region has only a try-body and no catch, or
+                 * LABEL_TYPE_CATCH / CATCH_ALL when at least one catch
+                 * clause is present), we need to remember the entry's
+                 * index and label type now — POP_CSP and the subsequent
+                 * skip_label / reserve_block_ret happen first, but the
+                 * end_of_region_pc capture has to wait until after
+                 * those advance loader_ctx->p_code_compiled. */
+                uint32 ending_eh_idx = cur_block->eh_entry_idx;
+                bool ending_was_eh =
+                    (ending_eh_idx != UINT32_MAX)
+                    && (cur_block->label_type == LABEL_TYPE_TRY
+                        || cur_block->label_type == LABEL_TYPE_CATCH
+                        || cur_block->label_type == LABEL_TYPE_CATCH_ALL);
+#endif
 
                 /* check whether block stack matches its result type */
                 if (!check_block_stack(loader_ctx, cur_block, error_buf,
@@ -12751,6 +12935,22 @@ re_scan:
                         error_buf, error_buf_size,
                         "There is a pending exception needs to be handled");
                     goto fail;
+                }
+#endif
+
+#if WASM_ENABLE_FAST_INTERP != 0 && WASM_ENABLE_EXCE_HANDLING != 0
+                /* Second-traverse-only: if this END closed a try-
+                 * region, record where the rewritten IR continues so a
+                 * runtime catch-handler body can branch past the
+                 * region after running. The captured pc lands *after*
+                 * the END's own skip_label and reserve_block_ret, so
+                 * the next dispatched op is whatever follows the
+                 * source-level END byte. */
+                if (loader_ctx->p_code_compiled != NULL && ending_was_eh) {
+                    bh_assert(ending_eh_idx < func->exception_handler_count);
+                    bh_assert(func->exception_handlers != NULL);
+                    func->exception_handlers[ending_eh_idx].end_of_region_pc =
+                        loader_ctx->p_code_compiled;
                 }
 #endif
 
