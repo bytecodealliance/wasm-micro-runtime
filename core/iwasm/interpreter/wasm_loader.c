@@ -12563,21 +12563,50 @@ re_scan:
             }
             case WASM_OP_RETHROW:
             {
-                /* must be done before checking branch block */
+                /* must be done before reading the depth */
                 SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
 
-                /* check the target catching block:  LABEL_TYPE_CATCH */
-                if (!(frame_csp_tmp =
-                          check_branch_block(loader_ctx, &p, p_end, opcode,
-                                             error_buf, error_buf_size)))
-                    goto fail;
-
-                if (frame_csp_tmp->label_type != LABEL_TYPE_CATCH
-                    && frame_csp_tmp->label_type != LABEL_TYPE_CATCH_ALL) {
-                    /* trap according to spectest (rethrow.wast) */
-                    set_error_buf(error_buf, error_buf_size,
-                                  "invalid rethrow label");
-                    goto fail;
+                /* Manual depth + label-type validation. We deliberately
+                 * skip the shared `check_branch_block` here because
+                 * RETHROW doesn't *branch* to its target — it walks
+                 * the eh-stack at runtime and re-raises — so the
+                 * branch-info bytes that check_branch_block /
+                 * emit_br_info would write between the auto-emitted
+                 * opcode label and our depth immediate are dead
+                 * weight (4 bytes arity + 8 bytes target ptr +
+                 * arity-dependent operand-offsets, all unread by the
+                 * runtime walker). Worse, leaving them in the IR
+                 * shifts our depth immediate past where the runtime
+                 * read_uint32(frame_ip) looks for it. */
+                {
+                    uint32 rethrow_depth = 0;
+                    BranchBlock *target_block;
+                    pb_read_leb_uint32(p, p_end, rethrow_depth);
+                    if (rethrow_depth + 1 > loader_ctx->csp_num) {
+#if WASM_ENABLE_SPEC_TEST == 0
+                        set_error_buf(error_buf, error_buf_size,
+                                      "unknown rethrow label");
+#else
+                        set_error_buf(error_buf, error_buf_size,
+                                      "unknown label");
+#endif
+                        goto fail;
+                    }
+                    target_block = loader_ctx->frame_csp - rethrow_depth - 1;
+                    if (target_block->label_type != LABEL_TYPE_CATCH
+                        && target_block->label_type != LABEL_TYPE_CATCH_ALL) {
+                        /* trap according to spectest (rethrow.wast) */
+                        set_error_buf(error_buf, error_buf_size,
+                                      "invalid rethrow label");
+                        goto fail;
+                    }
+#if WASM_ENABLE_FAST_INTERP != 0
+                    /* Emit the depth as a uint32 immediate after the
+                     * auto-emitted RETHROW opcode. Pass 1's size
+                     * accounting must match pass 2's actual emit so
+                     * we run this branch in both traverses. */
+                    emit_uint32(loader_ctx, rethrow_depth);
+#endif
                 }
 
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
