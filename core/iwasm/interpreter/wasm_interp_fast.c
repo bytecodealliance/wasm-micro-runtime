@@ -1813,7 +1813,27 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 val = GET_OPERAND(uint32, I32, 0);
                 frame_ip += 2;
 
-                if ((uint32)val >= tbl_inst->cur_size) {
+                /* Bounds / null / type-mismatch checks below are
+                 * structurally cold paths — well-formed wasm modules
+                 * pass them on every dispatched CALL_INDIRECT. Marking
+                 * them `__builtin_expect(cond, 0)` lets the compiler
+                 * (a) hint the branch predictor with a static-bias
+                 * fallback for unseen call sites, and (b) lay out the
+                 * error-handling tail away from the hot path so each
+                 * fall-through case stays in one straight-line I-cache
+                 * line. Apple Silicon E-cores (Icestorm, iPhone 12)
+                 * showed ~27 % `Discarded` (bad-spec / mispredict)
+                 * on the AS variant of graphql-validation under
+                 * fast-interp, where megamorphic vtable dispatch
+                 * hits CALL_INDIRECT thousands of times; the layout
+                 * hint matters more than the branch hint on Apple's
+                 * sophisticated predictor. PMU bucket shares stay
+                 * within run-to-run noise on both Porffor and AS
+                 * graphql-validation workloads, so the change is
+                 * documentation-as-code more than a speedup —
+                 * keep it because the cold-path semantic is real
+                 * and the cost is zero. */
+                if (__builtin_expect((uint32)val >= tbl_inst->cur_size, 0)) {
                     wasm_set_exception(module, "undefined element");
                     goto got_exception;
                 }
@@ -1821,13 +1841,13 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 /* clang-format off */
 #if WASM_ENABLE_GC == 0
                 fidx = (uint32)tbl_inst->elems[val];
-                if (fidx == (uint32)-1) {
+                if (__builtin_expect(fidx == (uint32)-1, 0)) {
                     wasm_set_exception(module, "uninitialized element");
                     goto got_exception;
                 }
 #else
                 func_obj = (WASMFuncObjectRef)tbl_inst->elems[val];
-                if (!func_obj) {
+                if (__builtin_expect(!func_obj, 0)) {
                     wasm_set_exception(module, "uninitialized element");
                     goto got_exception;
                 }
@@ -1840,7 +1860,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                  * another module. in that case, we don't validate
                  * the elem value while loading
                  */
-                if (fidx >= module->e->function_count) {
+                if (__builtin_expect(fidx >= module->e->function_count, 0)) {
                     wasm_set_exception(module, "unknown function");
                     goto got_exception;
                 }
@@ -1855,12 +1875,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 
                 /* clang-format off */
 #if WASM_ENABLE_GC == 0
-                if (cur_type != cur_func_type) {
+                if (__builtin_expect(cur_type != cur_func_type, 0)) {
                     wasm_set_exception(module, "indirect call type mismatch");
                     goto got_exception;
                 }
 #else
-                if (!wasm_func_type_is_super_of(cur_type, cur_func_type)) {
+                if (__builtin_expect(
+                        !wasm_func_type_is_super_of(cur_type, cur_func_type),
+                        0)) {
                     wasm_set_exception(module, "indirect call type mismatch");
                     goto got_exception;
                 }
