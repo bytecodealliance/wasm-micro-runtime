@@ -688,6 +688,25 @@ typedef struct WASMImport {
 typedef struct WASMFastEHCatch {
     uint32 tag_index;
     uint8 *handler_pc;
+    /* Tag-with-params payload routing (same-function dispatch only).
+     * When this catch matches, the throw walker copies `param_cell_num`
+     * 32-bit cells from the throw site's *source* slots (encoded as
+     * `int16` immediates after the THROW opcode in the rewritten IR)
+     * into these *destination* slots in the catch body's `frame_lp`,
+     * then sets `frame_ip = handler_pc`. The destination slots are
+     * allocated by the CATCH loader at preprocess time, mirroring how
+     * block-with-params allocate fresh `dynamic_offset` slots via
+     * `PUSH_OFFSET_TYPE`. NULL iff `param_cell_num == 0` (the typical
+     * tag-without-params shape, e.g. Porffor's empty-payload tags).
+     *
+     * Cross-function dispatch (caller's catch fires for a callee's
+     * throw) does NOT copy the payload: the callee's source slots
+     * sit in a frame that's about to be torn down by return_func.
+     * That gap is documented as an ignored integration test —
+     * `cross_function_tag_with_params` in
+     * crates/benchmark-core/tests/eh_correctness.rs. */
+    uint32 param_cell_num;
+    int16 *param_dst_offsets;
 } WASMFastEHCatch;
 
 /* One entry per same-function try-region, indexed by the uint32 immediate

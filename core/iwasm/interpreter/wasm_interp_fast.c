@@ -1560,6 +1560,22 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
      * Cold path only — the dispatch loop's hot ops never reference
      * this variable, so the compiler is free to spill it. */
     uint32 exception_tag_index = 0;
+    /* Tag-with-params payload routing for same-function dispatch.
+     * Read off the IR after THROW's tag_index immediate;
+     * `throw_src_offsets` points at the first src-slot int16 in the
+     * rewritten IR, and `throw_param_cell_num` is the total cell
+     * count across all of the tag's params. find_a_catch_handler
+     * uses these to copy frame_lp[src[i]] into the matched catch's
+     * pre-allocated dst slots. Both are cold-path-only — like
+     * exception_tag_index, the dispatch loop's hot ops never
+     * reference them. RETHROW re-points throw_src_offsets at the
+     * still-alive catch's `param_dst_offsets` (the original
+     * payload values, unchanged by the catch body since they live
+     * in a different slot range from locals) so the re-raised
+     * exception carries the same payload across outer try-regions
+     * in this frame. */
+    uint32 throw_param_cell_num = 0;
+    int16 *throw_src_offsets = NULL;
 #endif
 
 #if WASM_ENABLE_INSTRUCTION_METERING != 0
@@ -1861,13 +1877,32 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_EXCE_HANDLING != 0
             HANDLE_OP(WASM_OP_THROW)
             {
-                /* Loader emits `WASM_OP_THROW <tag_index:u32>`. Read
-                 * the tag, then walk the eh-stack in
-                 * find_a_catch_handler to find a matching catch —
-                 * first in this frame, then via return_func's hook in
-                 * caller frames, and finally falling out to the host
-                 * via got_exception when no match is found anywhere. */
+                /* Loader emits
+                 *   `WASM_OP_THROW <tag_index:u32>
+                 *                  <param_cell_num:u32>
+                 *                  <src_offset_0:int16> ...
+                 * <src_offset_N-1:int16>`. Read the tag plus payload-source
+                 * metadata, then walk the eh-stack in find_a_catch_handler to
+                 * find a matching catch — first in this frame, then via
+                 * return_func's hook in caller frames, and finally
+                 * falling out to the host via got_exception when no
+                 * match is found anywhere.
+                 *
+                 * Payload routing: when a same-function catch matches,
+                 * find_a_catch_handler copies frame_lp[src[i]] into
+                 * the catch's pre-allocated dst slots (recorded on
+                 * `WASMFastEHCatch.param_dst_offsets` at load time).
+                 * For tag-without-params (the typical Porffor shape),
+                 * `throw_param_cell_num == 0` makes the copy a no-op.
+                 * For cross-function dispatch the source frame is
+                 * torn down before the caller's walker runs, so the
+                 * payload is dropped — this gap is documented in
+                 * AGENTS.md and exercised as
+                 * `cross_function_tag_with_params` (#[ignore]). */
                 exception_tag_index = read_uint32(frame_ip);
+                throw_param_cell_num = read_uint32(frame_ip);
+                throw_src_offsets = (int16 *)frame_ip;
+                frame_ip += sizeof(int16) * throw_param_cell_num;
                 goto find_a_catch_handler;
             }
 
@@ -1962,11 +1997,33 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                          * raise it. */
                         cells[0] = packed | EH_TRY_CATCH_STATE_BIT;
                         cells[1] = exception_tag_index;
+                        /* Payload copy (same-function dispatch).
+                         * The loader guaranteed
+                         * `entry->catches[j].param_cell_num ==
+                         * throw_param_cell_num` by checking the
+                         * tag type at both THROW and CATCH; the
+                         * runtime just executes the cell-wise
+                         * frame_lp move. Tag-without-params makes
+                         * the loop trivial. */
+                        if (throw_param_cell_num > 0
+                            && entry->catches[j].param_dst_offsets) {
+                            uint32 c;
+                            int16 *dst = entry->catches[j].param_dst_offsets;
+                            for (c = 0; c < throw_param_cell_num; c++) {
+                                frame_lp[dst[c]] =
+                                    frame_lp[throw_src_offsets[c]];
+                            }
+                        }
                         frame_ip = entry->catches[j].handler_pc;
                         HANDLE_OP_END();
                     }
                 }
                 if (entry->catch_all_pc) {
+                    /* catch_all binds no payload (spec: catch_all
+                     * has no exception values), so we drop the
+                     * src cells here. RETHROW from inside a
+                     * catch_all body cannot re-emit a payload —
+                     * documented as a known limitation. */
                     cells[0] = packed | EH_TRY_CATCH_STATE_BIT;
                     cells[1] = exception_tag_index;
                     frame_ip = entry->catch_all_pc;
@@ -2075,7 +2132,51 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                         /* Re-raise the caught tag against the *outer*
                          * try-regions. find_a_catch_handler iterates
                          * top-down and skips state=CATCH entries, so
-                         * this same entry won't re-match. */
+                         * this same entry won't re-match.
+                         *
+                         * Payload routing: the original throw's
+                         * payload values were copied into THIS
+                         * catch's dst slots by the previous
+                         * find_a_catch_handler dispatch. The wasm
+                         * spec says the catch body can't mutate
+                         * those exception values directly (they're
+                         * not addressable as locals, and the only
+                         * way to read them is to pop off the
+                         * operand stack at catch entry — which
+                         * advances past the dst slots without
+                         * writing them back). So at RETHROW time
+                         * the dst slots still hold the original
+                         * payload, and we can point throw_src_offsets
+                         * at them so the outer catch's copy lands
+                         * on a fresh set of dst slots with the
+                         * same values.
+                         *
+                         * If the original match was via catch_all
+                         * (no typed catch matched cells[1]),
+                         * `match->param_dst_offsets == NULL` and the
+                         * payload was already dropped at the
+                         * catch_all dispatch. RETHROW from
+                         * catch_all then re-raises with no payload
+                         * — documented as a known limitation. */
+                        uint32 ent_eh_idx = cells[0] & ~EH_TRY_CATCH_STATE_BIT;
+                        WASMFastEHEntry *ent =
+                            &cur_wasm_func->exception_handlers[ent_eh_idx];
+                        WASMFastEHCatch *match = NULL;
+                        uint32 mj;
+                        for (mj = 0; mj < ent->catch_count; mj++) {
+                            if (ent->catches[mj].tag_index == cells[1]) {
+                                match = &ent->catches[mj];
+                                break;
+                            }
+                        }
+                        if (match && match->param_dst_offsets) {
+                            throw_param_cell_num = match->param_cell_num;
+                            throw_src_offsets = match->param_dst_offsets;
+                        }
+                        else {
+                            throw_param_cell_num = 0;
+                            throw_src_offsets = NULL;
+                        }
                         exception_tag_index = cells[1];
                         goto find_a_catch_handler;
                     }
@@ -8145,9 +8246,22 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
          * chance to catch. Predicted strongly not-taken —
          * exceptions are rare, this single check is the entire
          * CALL-return-side cost of EH; the success path takes the
-         * HANDLE_OP_END() below. */
+         * HANDLE_OP_END() below.
+         *
+         * Cross-frame payload routing: the callee's throw site's
+         * source slots lived in the callee's frame_lp, which has
+         * already been freed by the time we get here. We zero out
+         * the throw_param_cell_num / throw_src_offsets pair so the
+         * caller's find_a_catch_handler doesn't try to dereference
+         * freed memory — the catch (if any matches) will fire with
+         * a zero-cell payload. This is the same gap documented at
+         * the WASM_OP_THROW handler and surfaced as
+         * `cross_function_tag_with_params` in the integration
+         * suite. */
         if (frame->exception_raised) {
             exception_tag_index = frame->tag_index;
+            throw_param_cell_num = 0;
+            throw_src_offsets = NULL;
             frame->exception_raised = false;
             goto find_a_catch_handler;
         }
