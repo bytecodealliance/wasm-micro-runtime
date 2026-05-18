@@ -7366,12 +7366,22 @@ wasm_loader_unload(WASMModule *module)
                     for (eh_idx = 0;
                          eh_idx < module->functions[i]->exception_handler_count;
                          eh_idx++) {
-                        if (module->functions[i]
-                                ->exception_handlers[eh_idx]
-                                .catches) {
-                            wasm_runtime_free(module->functions[i]
-                                                  ->exception_handlers[eh_idx]
-                                                  .catches);
+                        WASMFastEHEntry *eh_entry =
+                            &module->functions[i]->exception_handlers[eh_idx];
+                        if (eh_entry->catches) {
+                            uint32 cj;
+                            /* Free each catch's tag-with-params dst
+                             * slot array. param_dst_offsets is NULL
+                             * for the (common) tag-without-params
+                             * case, in which case the free is a
+                             * no-op. */
+                            for (cj = 0; cj < eh_entry->catch_count; cj++) {
+                                if (eh_entry->catches[cj].param_dst_offsets) {
+                                    wasm_runtime_free(eh_entry->catches[cj]
+                                                          .param_dst_offsets);
+                                }
+                            }
+                            wasm_runtime_free(eh_entry->catches);
                         }
                     }
                     wasm_runtime_free(module->functions[i]->exception_handlers);
@@ -12445,19 +12455,6 @@ re_scan:
                 uint32 tag_index = 0;
                 pb_read_leb_int32(p, p_end, tag_index);
 
-#if WASM_ENABLE_FAST_INTERP != 0
-                /* Fast-interp: the LEB-encoded tag_index from the source
-                 * bytecode is consumed above; re-emit it as a plain
-                 * uint32 immediate after the (auto-emitted) THROW opcode
-                 * so the runtime handler can read it without re-running
-                 * the LEB decoder. The runtime currently treats the tag
-                 * as opaque (it surfaces a generic "wasm exception
-                 * thrown (tag N)" string via wasm_set_exception and
-                 * escapes via got_exception). Same emit shape as
-                 * WASM_OP_CALL's funcidx. */
-                emit_uint32(loader_ctx, tag_index);
-#endif
-
                 /* check validity of tag_index against module->tag_count */
                 /* check tag index is within the tag index space */
                 if (tag_index >= module->import_tag_count + module->tag_count) {
@@ -12483,6 +12480,59 @@ re_scan:
                                   "tag type signature does not return void");
                     goto fail;
                 }
+
+#if WASM_ENABLE_FAST_INTERP != 0
+                /* Fast-interp THROW IR shape (emitted in BOTH traverses
+                 * so pass-1 / pass-2 size accounting stays balanced):
+                 *
+                 *   <THROW label>
+                 *   <tag_index:u32>
+                 *   <param_cell_num:u32>
+                 *   <src_offset_0:int16> ... <src_offset_N-1:int16>
+                 *
+                 * Where `param_cell_num` is the sum across all params'
+                 * cell widths (i32 = 1, i64 = 2, v128 = 4, etc.) and
+                 * src_offset_i is the throw-site's frame_lp slot for
+                 * the i-th payload cell, read directly off the top of
+                 * `loader_ctx->frame_offset[]`. The validation loop
+                 * below pops frame_ref / available_stack_cell but
+                 * doesn't touch frame_offset, so the src offsets are
+                 * stable to read here. They get consumed at runtime
+                 * by find_a_catch_handler when a *same-function*
+                 * catch matches: it copies `param_cell_num` cells
+                 * from frame_lp[src_offset_i] into the catch body's
+                 * `param_dst_offsets[i]` slots before jumping to
+                 * handler_pc.
+                 *
+                 * Cross-function dispatch (callee throws, caller's
+                 * catch fires after return_func unwinds) does NOT
+                 * preserve the payload — the source slots live in a
+                 * frame that's about to be torn down. That gap is
+                 * documented as an ignored integration test, in line
+                 * with the cost-model rule that EH must not tax hot
+                 * ops: a per-thread payload buffer would force every
+                 * CALL / RETURN handler to spill scratch state across
+                 * the boundary, which we explicitly refuse.
+                 *
+                 * Tag-without-params is the common case (Porffor
+                 * emits empty payloads; many spec tests use bare
+                 * tags too). param_cell_num=0 makes the for-loop
+                 * trivial and the resulting IR is just the tag_index
+                 * + a single zero — same hot-path cost as the
+                 * pre-tag-with-params shape, since the runtime
+                 * read_uint32 of param_cell_num happens on the cold
+                 * THROW handler. */
+                emit_uint32(loader_ctx, tag_index);
+                emit_uint32(loader_ctx, tag_type->param_cell_num);
+                {
+                    uint32 ci;
+                    for (ci = 0; ci < tag_type->param_cell_num; ci++) {
+                        int16 src = *(loader_ctx->frame_offset
+                                      - tag_type->param_cell_num + ci);
+                        emit_operand(loader_ctx, src);
+                    }
+                }
+#endif
 
                 int32 available_stack_cell =
                     (int32)(loader_ctx->stack_cell_num
@@ -12758,12 +12808,75 @@ re_scan:
                  * loader allocation the heap placed immediately after
                  * (typically func->exception_handlers itself). */
                 emit_uint32(loader_ctx, cur_block->eh_entry_idx);
+#endif
 
-                /* Second traverse only: append (tag_index, handler_pc)
-                 * to the parent try-region's catches[]. handler_pc is
-                 * the first rewritten-IR byte *after* the eh_idx
-                 * immediate — that's where the runtime throw dispatch
-                 * jumps when a matching tag is caught. */
+                /*
+                 * replace frame_csp by LABEL_TYPE_CATCH
+                 */
+                cur_block->label_type = LABEL_TYPE_CATCH;
+
+                /* RESET_STACK removes the values pushed in TRY or previous
+                 * CATCH Blocks */
+                RESET_STACK();
+
+#if WASM_ENABLE_GC != 0
+                WASMRefType *ref_type;
+                uint32 j = 0;
+#endif
+
+                /* Push the tag's params onto the catch body's operand
+                 * stack. Classic-interp uses PUSH_TYPE (which only
+                 * touches the value-type stack used by validation);
+                 * fast-interp also needs `PUSH_OFFSET_TYPE`, which
+                 * allocates fresh `dynamic_offset` slots for each cell
+                 * (and emits the slot offsets as `int16` operands in
+                 * the IR right after the eh_idx). The catch body's
+                 * downstream ops then `POP_OFFSET_TYPE` to consume
+                 * these slots — same shape the loader uses for
+                 * block-with-params (see `copy_params_to_dynamic_
+                 * space`).
+                 *
+                 * Note: the emitted dst slots are *unused* by the
+                 * runtime CATCH normal-flow handler (it only reads
+                 * eh_idx and branches to end_of_region_pc) — they
+                 * sit in the IR as dead bytes on the fall-through
+                 * path. The throw walker doesn't read them either;
+                 * it consults the pre-decoded copy on
+                 * `WASMFastEHCatch.param_dst_offsets` (populated
+                 * below). They're emitted only so PUSH_OFFSET_TYPE's
+                 * pass-1 / pass-2 size accounting stays balanced and
+                 * the catch body's POP_OFFSET_TYPEs find the right
+                 * slot offsets in `frame_offset[]`. */
+                for (i = 0; i < func_type->param_count; i++) {
+#if WASM_ENABLE_GC != 0
+                    if (wasm_is_type_multi_byte_type(func_type->types[i])) {
+                        bh_assert(func_type->ref_type_maps[j].index == i);
+                        ref_type = func_type->ref_type_maps[j].ref_type;
+                        bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
+                                    ref_type,
+                                    wasm_reftype_struct_size(ref_type));
+                        j++;
+                    }
+#endif
+#if WASM_ENABLE_FAST_INTERP != 0
+                    PUSH_OFFSET_TYPE(func_type->types[i]);
+#else
+                    PUSH_TYPE(func_type->types[i]);
+#endif
+                }
+
+#if WASM_ENABLE_FAST_INTERP != 0
+                /* Second traverse only: append a fully-populated
+                 * `WASMFastEHCatch` entry to the parent try-region's
+                 * catches[]. handler_pc is captured *after* the
+                 * PUSH_OFFSET_TYPE emits above so it points at the
+                 * first rewritten-IR byte of the catch body proper
+                 * (skipping the dead dst-slot bytes). param_cell_num
+                 * is the sum of cells across all tag params (i32 = 1
+                 * cell, i64 = 2, v128 = 4); param_dst_offsets is a
+                 * loader-owned copy of the int16 slot offsets just
+                 * pushed onto frame_offset[]. NULL when the tag has
+                 * no params (the typical Porffor shape). */
                 if (loader_ctx->p_code_compiled != NULL) {
                     uint32 eh_idx = cur_block->eh_entry_idx;
                     WASMFastEHEntry *entry;
@@ -12788,39 +12901,35 @@ re_scan:
                     new_catches[entry->catch_count].tag_index = tag_index;
                     new_catches[entry->catch_count].handler_pc =
                         loader_ctx->p_code_compiled;
+                    new_catches[entry->catch_count].param_cell_num =
+                        func_type->param_cell_num;
+                    new_catches[entry->catch_count].param_dst_offsets = NULL;
+                    if (func_type->param_cell_num > 0) {
+                        uint64 dst_size =
+                            (uint64)sizeof(int16) * func_type->param_cell_num;
+                        int16 *dst;
+                        if (!(dst = loader_malloc(dst_size, error_buf,
+                                                  error_buf_size))) {
+                            wasm_runtime_free(new_catches);
+                            goto fail;
+                        }
+                        /* The just-completed PUSH_OFFSET_TYPE sequence
+                         * pushed param_cell_num int16 entries onto
+                         * frame_offset[] in source order (param 0's
+                         * cell 0, cell 1, ..., param 1's cell 0, ...).
+                         * Copy them out now while the top of
+                         * frame_offset[] still holds them — the next
+                         * RESET_STACK would wipe them. */
+                        bh_memcpy_s(dst, (uint32)dst_size,
+                                    loader_ctx->frame_offset
+                                        - func_type->param_cell_num,
+                                    (uint32)dst_size);
+                        new_catches[entry->catch_count].param_dst_offsets = dst;
+                    }
                     entry->catches = new_catches;
                     entry->catch_count++;
                 }
 #endif
-
-                /*
-                 * replace frame_csp by LABEL_TYPE_CATCH
-                 */
-                cur_block->label_type = LABEL_TYPE_CATCH;
-
-                /* RESET_STACK removes the values pushed in TRY or previous
-                 * CATCH Blocks */
-                RESET_STACK();
-
-#if WASM_ENABLE_GC != 0
-                WASMRefType *ref_type;
-                uint32 j = 0;
-#endif
-
-                /* push types on the stack according to caught type */
-                for (i = 0; i < func_type->param_count; i++) {
-#if WASM_ENABLE_GC != 0
-                    if (wasm_is_type_multi_byte_type(func_type->types[i])) {
-                        bh_assert(func_type->ref_type_maps[j].index == i);
-                        ref_type = func_type->ref_type_maps[j].ref_type;
-                        bh_memcpy_s(&wasm_ref_type, sizeof(WASMRefType),
-                                    ref_type,
-                                    wasm_reftype_struct_size(ref_type));
-                        j++;
-                    }
-#endif
-                    PUSH_TYPE(func_type->types[i]);
-                }
                 break;
             }
             case WASM_OP_CATCH_ALL:
