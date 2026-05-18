@@ -11315,6 +11315,39 @@ fail:
 }
 
 #if WASM_ENABLE_EXCE_HANDLING != 0
+/* Returns the number of LABEL_TYPE_TRY / _CATCH / _CATCH_ALL
+ * frames whose END the runtime br will SKIP — i.e. the count of
+ * such frames at csp positions `cur_block` down to `target_block`
+ * inclusive (target_block included because br to a non-LOOP
+ * target lands AFTER target's end, skipping it; LOOP targets
+ * aren't try-typed so the inclusive vs exclusive distinction
+ * doesn't matter for them). The runtime br jumps directly to the
+ * target's resolved pc without decrementing `frame->eh_count`,
+ * so each such frame represents one stale eh-stack entry that
+ * survives the br. A single leaked entry is benign — frame
+ * allocation reserves `exception_handler_count * EH_ENTRY_CELLS`
+ * cells, the walker iterates top-down so sibling-try throws
+ * still match correctly, and the stale entry dies at frame
+ * teardown. But a br to a surrounding LOOP re-pushes one entry
+ * every iteration, eventually overflowing the static reservation;
+ * the resulting out-of-bounds writes go through silently in
+ * release builds (`bh_assert` is a no-op without `BH_DEBUG`).
+ * Caller logs a warning so the shape shows up in load-time
+ * diagnostics. */
+static uint32
+count_try_blocks_crossed(BranchBlock *cur_block, BranchBlock *target_block)
+{
+    BranchBlock *b;
+    uint32 count = 0;
+    for (b = cur_block; b >= target_block; b--) {
+        if (b->label_type == LABEL_TYPE_TRY || b->label_type == LABEL_TYPE_CATCH
+            || b->label_type == LABEL_TYPE_CATCH_ALL) {
+            count++;
+        }
+    }
+    return count;
+}
+
 static BranchBlock *
 check_branch_block_for_delegate(WASMLoaderContext *loader_ctx, uint8 **p_buf,
                                 uint8 *buf_end, char *error_buf,
@@ -13407,6 +13440,29 @@ re_scan:
                                              error_buf, error_buf_size)))
                     goto fail;
 
+#if WASM_ENABLE_EXCE_HANDLING != 0 && WASM_ENABLE_FAST_INTERP != 0
+                /* Warn (pass 1 only — once per br site) when a br
+                 * skips over a try-region's END. The runtime br
+                 * doesn't pop eh-stack entries, so each leaked entry
+                 * relies on the static
+                 * `exception_handler_count * EH_ENTRY_CELLS` cell
+                 * reservation per frame to absorb it. Pathological
+                 * shape: `loop { try { br_to_loop_top } catch }`
+                 * leaks one entry per iteration and eventually writes
+                 * past that reservation. See `count_try_blocks_
+                 * crossed` for the full mechanism. */
+                if (loader_ctx->p_code_compiled == NULL) {
+                    uint32 leaked = count_try_blocks_crossed(
+                        loader_ctx->frame_csp - 1, frame_csp_tmp);
+                    if (leaked > 0) {
+                        LOG_WARNING("wasm fast-interp: br at func[%u] crosses "
+                                    "%u try-region(s); each leaks one "
+                                    "eh-stack entry until frame teardown",
+                                    cur_func_idx, leaked);
+                    }
+                }
+#endif
+
                 RESET_STACK();
                 SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(true);
                 break;
@@ -13420,6 +13476,20 @@ re_scan:
                           check_branch_block(loader_ctx, &p, p_end, opcode,
                                              error_buf, error_buf_size)))
                     goto fail;
+
+#if WASM_ENABLE_EXCE_HANDLING != 0 && WASM_ENABLE_FAST_INTERP != 0
+                if (loader_ctx->p_code_compiled == NULL) {
+                    uint32 leaked = count_try_blocks_crossed(
+                        loader_ctx->frame_csp - 1, frame_csp_tmp);
+                    if (leaked > 0) {
+                        LOG_WARNING(
+                            "wasm fast-interp: br_if at func[%u] crosses "
+                            "%u try-region(s); each leaks one "
+                            "eh-stack entry until frame teardown",
+                            cur_func_idx, leaked);
+                    }
+                }
+#endif
 
                 break;
             }
@@ -13486,6 +13556,21 @@ re_scan:
                                                  error_buf, error_buf_size))) {
                         goto fail;
                     }
+
+#if WASM_ENABLE_EXCE_HANDLING != 0 && WASM_ENABLE_FAST_INTERP != 0
+                    if (loader_ctx->p_code_compiled == NULL) {
+                        uint32 leaked = count_try_blocks_crossed(
+                            loader_ctx->frame_csp - 1, frame_csp_tmp);
+                        if (leaked > 0) {
+                            LOG_WARNING(
+                                "wasm fast-interp: br_table[%u] at "
+                                "func[%u] crosses %u try-region(s); each "
+                                "leaks one eh-stack entry until frame "
+                                "teardown",
+                                i, cur_func_idx, leaked);
+                        }
+                    }
+#endif
 
 #if WASM_ENABLE_FAST_INTERP == 0
                     if (br_table_cache) {
