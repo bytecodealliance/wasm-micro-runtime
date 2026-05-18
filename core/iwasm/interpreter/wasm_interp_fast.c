@@ -102,6 +102,18 @@ typedef float64 CellType_F64;
 #define CHECK_INSTRUCTION_LIMIT() (void)0
 #endif
 
+#if WASM_ENABLE_EXCE_HANDLING != 0
+/* Top bit of each per-frame eh-stack cell: clear when the try-region's
+ * handler is *in scope* (TRY state — a throw matching one of its
+ * catches will dispatch into the handler), set once the throw walker
+ * has selected one of its handlers (CATCH state — further throws
+ * raised from inside that handler skip the entry and propagate
+ * outward). The low 31 bits hold the index into
+ * func->exception_handlers, bounded by the loader's
+ * `exception_handler_count`. */
+#define EH_TRY_CATCH_STATE_BIT 0x80000000u
+#endif
+
 static inline uint32
 rotl32(uint32 n, uint32 c)
 {
@@ -1538,6 +1550,14 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
     uint8 *maddr = NULL;
     uint32 local_idx, local_offset, global_idx;
     uint8 opcode = 0, local_type, *global_addr;
+#if WASM_ENABLE_EXCE_HANDLING != 0
+    /* Carries the wasm tag index from WASM_OP_THROW to the
+     * find_a_catch_handler label, and from a callee's return through
+     * frame->tag_index back to a caller-side find_a_catch_handler.
+     * Cold path only — the dispatch loop's hot ops never reference
+     * this variable, so the compiler is free to spill it. */
+    uint32 exception_tag_index = 0;
+#endif
 
 #if WASM_ENABLE_INSTRUCTION_METERING != 0
     int instructions_left = -1;
@@ -1838,35 +1858,94 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_EXCE_HANDLING != 0
             HANDLE_OP(WASM_OP_THROW)
             {
-                /* The loader emits the tag index as a uint32 immediate
-                 * after the THROW opcode (see WASM_OP_THROW in
-                 * wasm_loader.c::wasm_loader_prepare_bytecode). Read it,
-                 * surface a tag-bearing exception, and escape to the
-                 * caller via got_exception — the existing trap-bailout
-                 * path is exactly what an uncaught wasm exception
-                 * should do.
-                 *
-                 * Same-function try/catch handlers are NOT implemented
-                 * yet: the loader skips emitting TRY/CATCH/CATCH_ALL/
-                 * DELEGATE into the fast-interp IR, so a throw inside a
-                 * try-block currently still escapes to the caller
-                 * (where the host can observe it via
-                 * wasm_runtime_get_exception). That matches the only
-                 * shape the wild emits today — Porffor's JS-to-wasm
-                 * compiler emits ~hundreds of throws and zero in-wasm
-                 * try/catch handlers in our test corpus. Full
-                 * in-function try/catch lowering is the natural
-                 * follow-up. */
-                uint32 exception_tag_index = read_uint32(frame_ip);
-                {
-                    char exception_buf[64];
-                    snprintf(exception_buf, sizeof(exception_buf),
-                             "wasm exception thrown (tag %u)",
-                             exception_tag_index);
-                    wasm_set_exception(module, exception_buf);
-                }
-                goto got_exception;
+                /* Loader emits `WASM_OP_THROW <tag_index:u32>`. Read
+                 * the tag, then walk the eh-stack in
+                 * find_a_catch_handler to find a matching catch —
+                 * first in this frame, then via return_func's hook in
+                 * caller frames, and finally falling out to the host
+                 * via got_exception when no match is found anywhere. */
+                exception_tag_index = read_uint32(frame_ip);
+                goto find_a_catch_handler;
             }
+
+        find_a_catch_handler:
+        {
+            /* The eh-stack lives in the trailing cells of
+             * frame->operand[] (see call_func_from_entry and the
+             * runtime push from WASM_OP_TRY). Each entry packs the
+             * eh-table index into the low 31 bits; the top bit
+             * (EH_TRY_CATCH_STATE_BIT) is set on entries whose
+             * catch handler is *already running* — those are
+             * skipped here so a throw raised from inside a catch
+             * body propagates outward rather than re-entering the
+             * same handler.
+             *
+             * Cost shape: the walk runs only on the throw path
+             * (cold). CALL / LOAD / STORE handlers are untouched,
+             * and the eh-stack cells share a cache line with the
+             * value stack they're allocated next to, so the walk
+             * hits warm memory.
+             *
+             * Known limitation in this patch: try-regions with a
+             * non-void result-type are *not yet supported* by the
+             * normal-flow path. The fix is a loader-side
+             * try-body→block-dynamic-offset COPY emit at CATCH
+             * processing time (mirrors how WASM_OP_ELSE aligns
+             * the if-body's result via reserve_block_ret). See the
+             * AGENTS.md "Open follow-up — WAMR fast-interp legacy
+             * exception handling" section for the architectural
+             * note. The throw → catch dispatch implemented here
+             * still works correctly for void-result try-regions
+             * (which is what graphql-validation-porf-accurate's
+             * single try-block is). */
+            WASMFunction *cur_wasm_func = cur_func->u.func;
+            uint32 *eh_stack = frame_lp + cur_func->param_cell_num
+                               + cur_func->local_cell_num
+                               + cur_wasm_func->max_stack_cell_num;
+            uint32 i;
+            for (i = frame->eh_count; i > 0; i--) {
+                uint32 packed = eh_stack[i - 1];
+                uint32 eh_idx;
+                WASMFastEHEntry *entry;
+                uint32 j;
+                if (packed & EH_TRY_CATCH_STATE_BIT)
+                    continue; /* in-progress catch — skip */
+                eh_idx = packed & ~EH_TRY_CATCH_STATE_BIT;
+                bh_assert(eh_idx < cur_wasm_func->exception_handler_count);
+                entry = &cur_wasm_func->exception_handlers[eh_idx];
+                for (j = 0; j < entry->catch_count; j++) {
+                    if (entry->catches[j].tag_index == exception_tag_index) {
+                        eh_stack[i - 1] = packed | EH_TRY_CATCH_STATE_BIT;
+                        frame_ip = entry->catches[j].handler_pc;
+                        HANDLE_OP_END();
+                    }
+                }
+                if (entry->catch_all_pc) {
+                    eh_stack[i - 1] = packed | EH_TRY_CATCH_STATE_BIT;
+                    frame_ip = entry->catch_all_pc;
+                    HANDLE_OP_END();
+                }
+            }
+            /* No handler in this frame. Hand the exception off to
+             * the caller via return_func, which checks
+             * frame->exception_raised after RECOVER_CONTEXT and
+             * re-enters this label with the caller's frame in
+             * scope. If we're already at the top of the wasm
+             * stack, the existing got_exception path lets the
+             * host observe the trap via wasm_runtime_get_exception. */
+            if (prev_frame && prev_frame->ip) {
+                prev_frame->tag_index = exception_tag_index;
+                prev_frame->exception_raised = true;
+                goto return_func;
+            }
+            {
+                char exception_buf[64];
+                snprintf(exception_buf, sizeof(exception_buf),
+                         "wasm exception thrown (tag %u)", exception_tag_index);
+                wasm_set_exception(module, exception_buf);
+            }
+            goto got_exception;
+        }
 
             HANDLE_OP(WASM_OP_TRY)
             {
@@ -7871,6 +7950,16 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
 #if WASM_ENABLE_EXCE_HANDLING != 0
             /* eh-stack starts empty; WASM_OP_TRY appends entries. */
             frame->eh_count = 0;
+            /* exception_raised is the marker `return_func` reads on
+             * every wasm-to-wasm call return; if a callee's throw
+             * found no in-frame handler it stashes the tag on the
+             * caller's frame->tag_index and sets this flag, then
+             * goes to return_func. ALLOC_FRAME doesn't zero-init
+             * the frame header, so leaving the slot uninitialized
+             * trips the return_func hook on every call return with
+             * stale memory contents — turning a non-throwing run
+             * into "wasm exception thrown (tag N)" for random N. */
+            frame->exception_raised = false;
 #endif
 
             frame_lp = frame->lp =
@@ -7929,6 +8018,21 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
         RECOVER_CONTEXT(prev_frame);
 #if WASM_ENABLE_GC != 0
         local_cell_num = cur_func->param_cell_num + cur_func->local_cell_num;
+#endif
+#if WASM_ENABLE_EXCE_HANDLING != 0
+        /* Inter-function unwind: the callee stashed a wasm tag on
+         * this frame (now the active one after RECOVER_CONTEXT)
+         * when its eh-stack walk found no in-frame match. Re-enter
+         * find_a_catch_handler so the caller's eh-stack gets a
+         * chance to catch. Predicted strongly not-taken —
+         * exceptions are rare, this single check is the entire
+         * CALL-return-side cost of EH; the success path takes the
+         * HANDLE_OP_END() below. */
+        if (frame->exception_raised) {
+            exception_tag_index = frame->tag_index;
+            frame->exception_raised = false;
+            goto find_a_catch_handler;
+        }
 #endif
         HANDLE_OP_END();
     }

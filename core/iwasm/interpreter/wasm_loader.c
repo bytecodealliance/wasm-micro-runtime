@@ -12660,18 +12660,24 @@ re_scan:
                                   "Unexpected block sequence encountered.");
                     goto fail;
                 }
-
 #if WASM_ENABLE_FAST_INTERP != 0
-                /* Second traverse: emit `<eh_idx:u32>` after the auto-
-                 * emitted CATCH opcode and record (tag_index,
-                 * handler_pc) on the parent try-region's catches[].
-                 * handler_pc is the first rewritten-IR byte *after*
-                 * the eh_idx immediate — that's where the runtime
-                 * throw dispatch (follow-up commit) jumps when a
-                 * matching tag is caught. The CATCH op itself only
-                 * runs on *normal-flow* fall-through, in which case
-                 * the runtime handler pops one eh-stack entry and
-                 * branches to end_of_region_pc. */
+                /* Emit `<eh_idx:u32>` after the auto-emitted CATCH
+                 * opcode. The runtime CATCH handler reads it to find
+                 * end_of_region_pc when the catch is reached via
+                 * normal flow. Emitted in BOTH traverses so pass 1's
+                 * size measurement and pass 2's actual writes match;
+                 * if this were inside the populate guard below,
+                 * pass 2 would overrun the code_compiled buffer by
+                 * sizeof(uint32) bytes per catch, corrupting whatever
+                 * loader allocation the heap placed immediately after
+                 * (typically func->exception_handlers itself). */
+                emit_uint32(loader_ctx, cur_block->eh_entry_idx);
+
+                /* Second traverse only: append (tag_index, handler_pc)
+                 * to the parent try-region's catches[]. handler_pc is
+                 * the first rewritten-IR byte *after* the eh_idx
+                 * immediate — that's where the runtime throw dispatch
+                 * jumps when a matching tag is caught. */
                 if (loader_ctx->p_code_compiled != NULL) {
                     uint32 eh_idx = cur_block->eh_entry_idx;
                     WASMFastEHEntry *entry;
@@ -12679,7 +12685,6 @@ re_scan:
                     uint64 new_size;
                     bh_assert(eh_idx < func->exception_handler_count);
                     bh_assert(func->exception_handlers != NULL);
-                    emit_uint32(loader_ctx, eh_idx);
                     entry = &func->exception_handlers[eh_idx];
                     new_size = (uint64)sizeof(WASMFastEHCatch)
                                * (entry->catch_count + 1);
@@ -12746,20 +12751,20 @@ re_scan:
                 }
 
 #if WASM_ENABLE_FAST_INTERP != 0
-                /* Second traverse: emit `<eh_idx:u32>` after the auto-
-                 * emitted CATCH_ALL opcode and record catch_all_pc on
-                 * the parent try-region. catch_all_pc starts NULL
-                 * (zero-init from loader_malloc) and is set exactly
-                 * once per region — the wasm spec allows at most one
-                 * catch_all per try. handler_pc points after the
-                 * eh_idx immediate, same shape as a typed CATCH. */
+                /* Emit `<eh_idx:u32>` after the auto-emitted CATCH_ALL
+                 * opcode in BOTH traverses (pass 1's size accounting
+                 * must include this or pass 2 overruns
+                 * code_compiled). Pass 2 additionally records
+                 * catch_all_pc on the parent try-region — set exactly
+                 * once per region (spec allows at most one catch_all
+                 * per try). */
+                emit_uint32(loader_ctx, cur_block->eh_entry_idx);
                 if (loader_ctx->p_code_compiled != NULL) {
                     uint32 eh_idx = cur_block->eh_entry_idx;
                     bh_assert(eh_idx < func->exception_handler_count);
                     bh_assert(func->exception_handlers != NULL);
                     bh_assert(func->exception_handlers[eh_idx].catch_all_pc
                               == NULL);
-                    emit_uint32(loader_ctx, eh_idx);
                     func->exception_handlers[eh_idx].catch_all_pc =
                         loader_ctx->p_code_compiled;
                 }
