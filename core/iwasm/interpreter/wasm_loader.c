@@ -12618,26 +12618,91 @@ re_scan:
             }
             case WASM_OP_DELEGATE:
             {
-                /* check  target block is valid */
-                if (!(frame_csp_tmp = check_branch_block_for_delegate(
-                          loader_ctx, &p, p_end, error_buf, error_buf_size)))
-                    goto fail;
-
+                /* Manual depth + label-type validation. Like RETHROW
+                 * (above), we deliberately skip the shared
+                 * `check_branch_block_for_delegate` here because:
+                 *  (1) DELEGATE doesn't *branch* to its target at
+                 *      runtime — when the try-body throws, the
+                 *      find_a_catch_handler walker reads the precomputed
+                 *      `delegate_target_depth` off the eh-table entry
+                 *      and skips the right number of nested-try entries
+                 *      on the per-frame eh-stack. The branch-info bytes
+                 *      that `emit_br_info` would write between the
+                 *      auto-emitted DELEGATE label and any subsequent
+                 *      operand are dead weight (4 bytes arity + 8 bytes
+                 *      target ptr, all unread by either the runtime
+                 *      DELEGATE handler or the throw walker).
+                 *  (2) Worse, leaving them in the IR shifts any
+                 *      immediate we *do* want to emit past where the
+                 *      runtime reads it — same gotcha that bit
+                 *      RETHROW.
+                 *
+                 * `delegate N` targets the (N+1)-th block out from the
+                 * current try-delegate frame. The try-delegate itself
+                 * still sits on the loader's csp stack at this point
+                 * (POP_CSP is called below), so the target is at
+                 *   frame_csp - N - 2
+                 * and the spec rejects `delegate N` whose N+1 would
+                 * climb past the function frame. */
+                uint32 delegate_depth = 0;
                 BranchBlock *cur_block = loader_ctx->frame_csp - 1;
+                BranchBlock *target_block;
                 uint8 label_type = cur_block->label_type;
-
                 (void)label_type;
+
+                pb_read_leb_uint32(p, p_end, delegate_depth);
+                bh_assert(loader_ctx->csp_num > 0);
+                if (loader_ctx->csp_num - 1 <= delegate_depth) {
+#if WASM_ENABLE_SPEC_TEST == 0
+                    set_error_buf(error_buf, error_buf_size,
+                                  "unknown delegate label");
+#else
+                    set_error_buf(error_buf, error_buf_size, "unknown label");
+#endif
+                    goto fail;
+                }
+                target_block = loader_ctx->frame_csp - delegate_depth - 2;
+                (void)target_block;
+
 #if WASM_ENABLE_FAST_INTERP != 0
-                /* Second traverse only: a `delegate N` closes the try
-                 * region and forwards uncaught exceptions to an outer
-                 * block. Record end_of_region_pc now — the actual depth
-                 * is wired up by a follow-up commit (the runtime can't
-                 * dispatch through delegate_target_depth until the
-                 * EH-frame stack exists). */
+                /* Second traverse only: populate the eh-table entry so
+                 * the runtime walker can dispatch through it.
+                 *
+                 *   delegate_target_depth = (count of try / catch /
+                 *       catch_all blocks STRICTLY between cur_block and
+                 *       target_block on the loader's csp stack)
+                 *
+                 * At runtime those `delta` blocks are exactly the
+                 * eh-stack entries immediately below the delegate's own
+                 * entry that the throw walker must SKIP — the spec
+                 * re-raises the exception "at the target block's
+                 * location", so any try whose body the delegate's try
+                 * is nested inside (but the target is also inside)
+                 * doesn't get to catch it.
+                 *
+                 *   end_of_region_pc still gets set to the IR pc just
+                 * after the auto-emitted DELEGATE label. The walker
+                 * never reads it for delegate entries (it forwards via
+                 * delta instead), but a future DELEGATE-end runtime
+                 * handler that wanted to advance frame_ip past the
+                 * region could use it; recording it keeps the
+                 * shape identical to the END(try) capture and the
+                 * field semantics easy to reason about. */
                 if (loader_ctx->p_code_compiled != NULL) {
                     uint32 eh_idx = cur_block->eh_entry_idx;
+                    uint32 delta = 0;
+                    BranchBlock *b;
                     bh_assert(eh_idx < func->exception_handler_count);
                     bh_assert(func->exception_handlers != NULL);
+                    for (b = cur_block - 1; b > target_block; b--) {
+                        if (b->label_type == LABEL_TYPE_TRY
+                            || b->label_type == LABEL_TYPE_CATCH
+                            || b->label_type == LABEL_TYPE_CATCH_ALL) {
+                            delta++;
+                        }
+                    }
+                    func->exception_handlers[eh_idx].delegate_target_depth =
+                        delta;
                     func->exception_handlers[eh_idx].end_of_region_pc =
                         loader_ctx->p_code_compiled;
                 }

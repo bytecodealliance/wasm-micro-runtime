@@ -1917,6 +1917,43 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                 eh_idx = packed & ~EH_TRY_CATCH_STATE_BIT;
                 bh_assert(eh_idx < cur_wasm_func->exception_handler_count);
                 entry = &cur_wasm_func->exception_handlers[eh_idx];
+                if (entry->delegate_target_depth != UINT32_MAX) {
+                    /* This try-region was closed by `delegate N`,
+                     * not `end`. The spec says the exception is
+                     * re-raised at the location of the target
+                     * block — i.e. it propagates past every try
+                     * whose body the delegate's try sits inside
+                     * (but the target is also inside). The loader
+                     * already counted those tries as
+                     * `delegate_target_depth = delta`. Marking
+                     * THIS entry as consumed and decrementing `i`
+                     * by `delta` makes the for-loop's natural
+                     * i-- land on the first eh-stack entry
+                     * strictly *outside* the target block — which
+                     * is exactly where the spec wants the throw
+                     * to resume matching.
+                     *
+                     * If `delta + 1 >= i`, the target block is
+                     * outside this function's eh-stack entirely
+                     * (e.g. `delegate <function-block-depth>`):
+                     * break out to the "no handler in this
+                     * frame" path and let return_func forward the
+                     * exception to the caller.
+                     *
+                     * Cost: cold path; only THROW reaches here.
+                     * Hot ops untouched. */
+                    uint32 delta = entry->delegate_target_depth;
+                    cells[0] = packed | EH_TRY_CATCH_STATE_BIT;
+                    if (delta + 1 >= i) {
+                        /* Underflow guard + escape signal: any
+                         * `delta` that would skip past the start
+                         * of the eh-stack means the target lies
+                         * past this function's try-blocks. */
+                        break;
+                    }
+                    i -= delta;
+                    continue;
+                }
                 for (j = 0; j < entry->catch_count; j++) {
                     if (entry->catches[j].tag_index == exception_tag_index) {
                         /* Mark the entry as in-progress catch and
@@ -2053,16 +2090,41 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
             }
 
             HANDLE_OP(WASM_OP_DELEGATE)
+            {
+                /* Normal-flow exit from a `try ... delegate N` region:
+                 * the try body completed without throwing, so the
+                 * runtime just pops the eh-stack entry that
+                 * HANDLE_OP(WASM_OP_TRY) pushed and falls through to
+                 * the next op in the rewritten IR (which is whatever
+                 * came after the `delegate N` in source).
+                 *
+                 * The forwarding semantics ("if the try body throws,
+                 * re-raise at the target block") are handled by the
+                 * find_a_catch_handler walker reading the eh-table
+                 * entry's `delegate_target_depth` and skipping that
+                 * many nested-try eh-stack entries — DELEGATE itself
+                 * doesn't run in the throw path, only on fall-through.
+                 *
+                 * No immediate to read: the loader skipped emit_br_info
+                 * so the depth lives in the per-function eh-table
+                 * indexed by the eh_idx of *this* try-region (which is
+                 * the eh-stack's top). Cost: one decrement on a cold
+                 * path; CALL / LOAD / STORE untouched. */
+                bh_assert(frame->eh_count > 0);
+                frame->eh_count--;
+                HANDLE_OP_END();
+            }
+
             HANDLE_OP(EXT_OP_TRY)
             {
-                /* Still routed through the diagnostic until a follow-
-                 * up commit wires up delegate dispatch and the type-
-                 * index-blocktype variant of TRY. The fast-interp
-                 * loader currently doesn't emit EXT_OP_TRY (CATCH /
-                 * DELEGATE indices are recorded directly on the
-                 * per-function exception_handlers table); hitting
-                 * either here means a future loader change started
-                 * emitting them. */
+                /* The fast-interp loader doesn't emit EXT_OP_TRY yet
+                 * (the eh-table records CATCH / CATCH_ALL / DELEGATE
+                 * indices directly on the per-function table; TRY's
+                 * uint32 immediate is the eh_idx, not a type-index
+                 * blocktype). Reaching this handler means a future
+                 * loader change started emitting EXT_OP_TRY without
+                 * the runtime catching up — surface that as an
+                 * explicit trap. */
                 wasm_set_exception(module, "unsupported opcode");
                 goto got_exception;
             }
