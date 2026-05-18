@@ -12525,11 +12525,28 @@ re_scan:
                 emit_uint32(loader_ctx, tag_index);
                 emit_uint32(loader_ctx, tag_type->param_cell_num);
                 {
-                    uint32 ci;
-                    for (ci = 0; ci < tag_type->param_cell_num; ci++) {
-                        int16 src = *(loader_ctx->frame_offset
-                                      - tag_type->param_cell_num + ci);
-                        emit_operand(loader_ctx, src);
+                    /* Multi-cell types (i64, f64, v128) only have a
+                     * meaningful first-cell offset in
+                     * `frame_offset[]` — subsequent cells of the
+                     * same value are left uninitialized by
+                     * `wasm_loader_push_frame_offset` (it just
+                     * advances the pointer without writing). For
+                     * each param walk the per-param first cell out
+                     * of frame_offset and synthesize consecutive
+                     * cell offsets `(first, first+1, ...)`; that
+                     * matches the runtime invariant that an n-cell
+                     * value occupies n consecutive frame_lp cells. */
+                    uint32 pi, c, cell_so_far = 0;
+                    int16 *base =
+                        loader_ctx->frame_offset - tag_type->param_cell_num;
+                    for (pi = 0; pi < tag_type->param_count; pi++) {
+                        uint32 this_cells =
+                            wasm_value_type_cell_num(tag_type->types[pi]);
+                        int16 first_slot = base[cell_so_far];
+                        for (c = 0; c < this_cells; c++) {
+                            emit_operand(loader_ctx, (int16)(first_slot + c));
+                        }
+                        cell_so_far += this_cells;
                     }
                 }
 #endif
@@ -12858,11 +12875,28 @@ re_scan:
                         j++;
                     }
 #endif
+                    /* Allocate a fresh `dynamic_offset` slot for the
+                     * catch param AND push its type onto `frame_ref`
+                     * (so `stack_cell_num` stays balanced). One
+                     * without the other doesn't work: a bare
+                     * `PUSH_OFFSET_TYPE` leaves the offset side
+                     * ahead of the ref side, so the catch body's
+                     * first consumer (e.g. `global.set $g`) hits
+                     * `wasm_loader_pop_frame_offset`'s polymorphic
+                     * short-circuit — the CATCH block inherits the
+                     * polymorphic flag from THROW's
+                     * `SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE`, and
+                     * with `available_stack_cell == 0` the pop
+                     * silently returns without emitting the source
+                     * slot. The consumer's runtime read then lands
+                     * on heap garbage and crashes with SIGBUS /
+                     * SIGSEGV. PUSH_TYPE rebalances and avoids
+                     * the short-circuit so the catch body's pops
+                     * emit real source-slot operand bytes. */
 #if WASM_ENABLE_FAST_INTERP != 0
                     PUSH_OFFSET_TYPE(func_type->types[i]);
-#else
-                    PUSH_TYPE(func_type->types[i]);
 #endif
+                    PUSH_TYPE(func_type->types[i]);
                 }
 
 #if WASM_ENABLE_FAST_INTERP != 0
@@ -12908,22 +12942,39 @@ re_scan:
                         uint64 dst_size =
                             (uint64)sizeof(int16) * func_type->param_cell_num;
                         int16 *dst;
+                        uint32 pi, c, cell_so_far = 0;
+                        int16 *base;
                         if (!(dst = loader_malloc(dst_size, error_buf,
                                                   error_buf_size))) {
                             wasm_runtime_free(new_catches);
                             goto fail;
                         }
-                        /* The just-completed PUSH_OFFSET_TYPE sequence
-                         * pushed param_cell_num int16 entries onto
-                         * frame_offset[] in source order (param 0's
-                         * cell 0, cell 1, ..., param 1's cell 0, ...).
-                         * Copy them out now while the top of
-                         * frame_offset[] still holds them — the next
-                         * RESET_STACK would wipe them. */
-                        bh_memcpy_s(dst, (uint32)dst_size,
-                                    loader_ctx->frame_offset
-                                        - func_type->param_cell_num,
-                                    (uint32)dst_size);
+                        /* Synthesize per-cell dst offsets from each
+                         * param's first cell. Same multi-cell shape
+                         * concern as the THROW src emit:
+                         * `wasm_loader_push_frame_offset` writes a
+                         * meaningful int16 only for the first cell
+                         * of a multi-cell value (i64 / f64 / v128);
+                         * subsequent cells of the same value have
+                         * unspecified frame_offset entries. The
+                         * runtime walker copies one frame_lp cell
+                         * per iteration, so its `param_cell_num`
+                         * loop needs an offset array indexed by
+                         * absolute cell number, not by frame_offset
+                         * position. Build that here by walking
+                         * params and synthesizing `(first, first+1,
+                         * ..., first+param_cells-1)` for each one. */
+                        base = loader_ctx->frame_offset
+                               - func_type->param_cell_num;
+                        for (pi = 0; pi < func_type->param_count; pi++) {
+                            uint32 this_cells =
+                                wasm_value_type_cell_num(func_type->types[pi]);
+                            int16 first_slot = base[cell_so_far];
+                            for (c = 0; c < this_cells; c++) {
+                                dst[cell_so_far + c] = (int16)(first_slot + c);
+                            }
+                            cell_so_far += this_cells;
+                        }
                         new_catches[entry->catch_count].param_dst_offsets = dst;
                     }
                     entry->catches = new_catches;
