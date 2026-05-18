@@ -12813,7 +12813,88 @@ re_scan:
                                   "Unexpected block sequence encountered.");
                     goto fail;
                 }
+
+                /* Validate previous body's stack (try body on first
+                 * CATCH, previous catch body on subsequent CATCH)
+                 * matches the block's result type. Without this the
+                 * loader would silently accept stack-shape mismatches
+                 * between the try body and the catch bodies and the
+                 * next op would read garbage. Same pattern as ELSE
+                 * runs `check_block_stack` on the if-body before the
+                 * else body's PUSH_TYPE sequence. */
+                if (!check_block_stack(loader_ctx, cur_block, error_buf,
+                                       error_buf_size))
+                    goto fail;
+
 #if WASM_ENABLE_FAST_INTERP != 0
+                /* For result-typed try-regions, inject a COPY of the
+                 * previous body's last value(s) into the block's
+                 * `dynamic_offset` slot BEFORE the auto-emitted CATCH
+                 * label. The normal-flow CATCH dispatch jumps from
+                 * here to `end_of_region_pc` — the body's value would
+                 * otherwise be lost. Mirrors how `reserve_block_ret`
+                 * + `case WASM_OP_ELSE` align the if-body's result
+                 * for the else-body's END to read. Layout becomes:
+                 *
+                 *   [previous body ops...]
+                 *   [EXT_OP_COPY_STACK_TOP src=prev_top dst=dyn_off]
+                 *   [CATCH label][eh_idx][dst-slots from PUSH...]
+                 *   [catch body ops...]
+                 *
+                 * The `src != dst` check runs in BOTH traverses so
+                 * pass-1 size accounting matches pass-2 writes:
+                 * `dynamic_offset` evolves identically in both
+                 * passes, and although const-pool slots get
+                 * renumbered between passes by the qsort/dedup at
+                 * the start of pass 2, they stay strictly negative
+                 * (offsets `-(count)..-1`) while `dynamic_offset` is
+                 * strictly non-negative (`>= start_dynamic_offset =
+                 * param_cell_num + local_cell_num`). So the
+                 * predicate is sign-stable across passes.
+                 *
+                 * Multi-return-value try-regions need
+                 * `EXT_OP_COPY_STACK_VALUES`; we error out
+                 * explicitly until a follow-up commit lifts that
+                 * restriction. Single-return covers every shape
+                 * Porffor / AS / our integration tests emit. */
+                {
+                    uint8 *return_types = NULL;
+#if WASM_ENABLE_GC == 0
+                    uint32 return_count = block_type_get_result_types(
+                        &cur_block->block_type, &return_types);
+#else
+                    WASMRefTypeMap *return_reftype_maps = NULL;
+                    uint32 return_reftype_map_count = 0;
+                    uint32 return_count = block_type_get_result_types(
+                        &cur_block->block_type, &return_types,
+                        &return_reftype_maps, &return_reftype_map_count);
+#endif
+                    if (return_count == 1) {
+                        uint8 cell =
+                            (uint8)wasm_value_type_cell_num(return_types[0]);
+                        int16 src = *(loader_ctx->frame_offset - cell);
+                        int16 dst = cur_block->dynamic_offset;
+                        if (src != dst) {
+                            skip_label();
+                            if (cell == 4)
+                                emit_label(EXT_OP_COPY_STACK_TOP_V128);
+                            else if (cell == 2)
+                                emit_label(EXT_OP_COPY_STACK_TOP_I64);
+                            else
+                                emit_label(EXT_OP_COPY_STACK_TOP);
+                            emit_operand(loader_ctx, src);
+                            emit_operand(loader_ctx, dst);
+                            emit_label(opcode);
+                        }
+                    }
+                    else if (return_count > 1) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "multi-return try-region not "
+                                      "supported in fast interpreter");
+                        goto fail;
+                    }
+                }
+
                 /* Emit `<eh_idx:u32>` after the auto-emitted CATCH
                  * opcode. The runtime CATCH handler reads it to find
                  * end_of_region_pc when the catch is reached via
@@ -12835,6 +12916,23 @@ re_scan:
                 /* RESET_STACK removes the values pushed in TRY or previous
                  * CATCH Blocks */
                 RESET_STACK();
+                /* Reset the polymorphic flag the way `WASM_OP_ELSE`
+                 * does: the catch body is a freshly-reachable region,
+                 * not a continuation of the (dead) try body after a
+                 * throw. Without this reset, the catch body's END
+                 * runs `check_block_stack` in polymorphic mode, which
+                 * emits a `POP_OFFSET_TYPE` operand byte for each
+                 * return-cell — those bytes land between the auto-
+                 * emitted END label and the case body's
+                 * `skip_label()`, shifting the re-emitted END label
+                 * forward by `2 * return_cell_num` bytes and leaving
+                 * a corrupt handler-ptr at the originally-recorded
+                 * `handler_pc`. (The same bug latent in non-EH
+                 * polymorphic blocks doesn't bite because their END
+                 * gets stripped from the IR entirely; the EH path's
+                 * runtime needs the END opcode to actually exist for
+                 * the eh-stack pop.) */
+                SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(false);
 
 #if WASM_ENABLE_GC != 0
                 WASMRefType *ref_type;
@@ -12996,7 +13094,58 @@ re_scan:
                     goto fail;
                 }
 
+                /* Same previous-body-stack validation as in CATCH. */
+                if (!check_block_stack(loader_ctx, cur_block, error_buf,
+                                       error_buf_size))
+                    goto fail;
+
 #if WASM_ENABLE_FAST_INTERP != 0
+                /* Same COPY-to-block-dynamic_offset shape as CATCH
+                 * (see the long comment in the CATCH case for the
+                 * rationale and pass-1/pass-2 alignment argument).
+                 * catch_all is the only place the body-COPY can run
+                 * for a try with a result-type and only a catch_all,
+                 * so without this emit a result-typed
+                 * `try (result T) ... catch_all` would lose the try
+                 * body's value on the normal-flow path. */
+                {
+                    uint8 *return_types = NULL;
+#if WASM_ENABLE_GC == 0
+                    uint32 return_count = block_type_get_result_types(
+                        &cur_block->block_type, &return_types);
+#else
+                    WASMRefTypeMap *return_reftype_maps = NULL;
+                    uint32 return_reftype_map_count = 0;
+                    uint32 return_count = block_type_get_result_types(
+                        &cur_block->block_type, &return_types,
+                        &return_reftype_maps, &return_reftype_map_count);
+#endif
+                    if (return_count == 1) {
+                        uint8 cell =
+                            (uint8)wasm_value_type_cell_num(return_types[0]);
+                        int16 src = *(loader_ctx->frame_offset - cell);
+                        int16 dst = cur_block->dynamic_offset;
+                        if (src != dst) {
+                            skip_label();
+                            if (cell == 4)
+                                emit_label(EXT_OP_COPY_STACK_TOP_V128);
+                            else if (cell == 2)
+                                emit_label(EXT_OP_COPY_STACK_TOP_I64);
+                            else
+                                emit_label(EXT_OP_COPY_STACK_TOP);
+                            emit_operand(loader_ctx, src);
+                            emit_operand(loader_ctx, dst);
+                            emit_label(opcode);
+                        }
+                    }
+                    else if (return_count > 1) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "multi-return try-region not "
+                                      "supported in fast interpreter");
+                        goto fail;
+                    }
+                }
+
                 /* Emit `<eh_idx:u32>` after the auto-emitted CATCH_ALL
                  * opcode in BOTH traverses (pass 1's size accounting
                  * must include this or pass 2 overruns
@@ -13023,6 +13172,9 @@ re_scan:
                 /* RESET_STACK removes the values pushed in TRY or previous
                  * CATCH Blocks */
                 RESET_STACK();
+                /* Same polymorphic reset as `WASM_OP_CATCH` — see the
+                 * matching comment there for the rationale. */
+                SET_CUR_BLOCK_STACK_POLYMORPHIC_STATE(false);
 
                 /* catch_all has no tagtype and therefore no parameters */
                 break;
