@@ -2083,8 +2083,36 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
              * re-enters this label with the caller's frame in
              * scope. If we're already at the top of the wasm
              * stack, the existing got_exception path lets the
-             * host observe the trap via wasm_runtime_get_exception. */
+             * host observe the trap via wasm_runtime_get_exception.
+             *
+             * Tag-with-params payload is intentionally NOT
+             * preserved across the frame boundary: the source
+             * cells (throw_src_offsets) live in *this* frame's
+             * frame_lp, which return_func is about to tear down.
+             * A caller-side typed catch would then bind
+             * uninitialized destination slots, producing wrong
+             * results in the catch body (or, if the typed catch
+             * uses the slots as a struct-of-pointers, memory
+             * corruption). The safe action when a payload-
+             * bearing throw escapes its callee is to trap to the
+             * host with a clear diagnostic. Same-function
+             * payload routing (the common Porffor / AS shape)
+             * is unaffected — it dispatches via the loop above
+             * before this branch runs. catch_all in the caller
+             * would technically tolerate a zero-payload bind,
+             * but the typed-vs-catch_all choice happens in the
+             * caller's walker, which we can't peek into here
+             * without coupling the frames; trap unconditionally
+             * for payload-bearing throws and let the test
+             * `cross_function_tag_with_params` document the
+             * shape. */
             if (prev_frame && prev_frame->ip) {
+                if (throw_param_cell_num > 0) {
+                    wasm_set_exception(module,
+                                       "cross-function exception payload "
+                                       "not supported by fast-interp");
+                    goto got_exception;
+                }
                 prev_frame->tag_index = exception_tag_index;
                 prev_frame->exception_raised = true;
                 goto return_func;
