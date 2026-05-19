@@ -2036,6 +2036,25 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                                     frame_lp[throw_src_offsets[c]];
                             }
                         }
+                        /* Pop the inner eh-stack entries that the
+                         * throw is jumping past. When the match is
+                         * at the topmost entry this is a no-op
+                         * (i == frame->eh_count). When the match is
+                         * an outer entry, the nested-try entries
+                         * above it (indices i .. eh_count-1) are
+                         * out of scope after the catch-dispatch;
+                         * leaving them counted would let a
+                         * subsequent throw inside the catch body
+                         * see stale in-scope entries (and a tight
+                         * loop of throw → outer-catch → throw
+                         * would eventually overflow the fixed
+                         * reservation). The matched entry stays
+                         * at index i-1 with its state bit set; the
+                         * catch body's END pops it when it
+                         * completes. Cost: one indexed store on
+                         * the cold throw path; CALL / LOAD / STORE
+                         * untouched. */
+                        frame->eh_count = i;
                         frame_ip = entry->catches[j].handler_pc;
                         HANDLE_OP_END();
                     }
@@ -2048,6 +2067,12 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                      * documented as a known limitation. */
                     cells[0] = packed | EH_TRY_CATCH_STATE_BIT;
                     cells[1] = exception_tag_index;
+                    /* Same unwind as the typed-catch path above —
+                     * pop any nested-try entries the throw is
+                     * jumping past so a subsequent throw inside
+                     * this catch_all body doesn't dispatch
+                     * against stale inner entries. */
+                    frame->eh_count = i;
                     frame_ip = entry->catch_all_pc;
                     HANDLE_OP_END();
                 }
