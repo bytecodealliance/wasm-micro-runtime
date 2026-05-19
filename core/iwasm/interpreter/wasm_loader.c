@@ -13433,20 +13433,37 @@ re_scan:
                     goto fail;
 
 #if WASM_ENABLE_EXCE_HANDLING != 0 && WASM_ENABLE_FAST_INTERP != 0
-                /* Warn (pass 1 only — once per br site) when a br
-                 * skips over a try-region's END. The runtime br
-                 * doesn't pop eh-stack entries, so each leaked entry
-                 * relies on the static
-                 * `exception_handler_count * EH_ENTRY_CELLS` cell
-                 * reservation per frame to absorb it. Pathological
-                 * shape: `loop { try { br_to_loop_top } catch }`
-                 * leaks one entry per iteration and eventually writes
-                 * past that reservation. See `count_try_blocks_
-                 * crossed` for the full mechanism. */
-                if (loader_ctx->p_code_compiled == NULL) {
+                /* When a br skips over a try-region's END, the
+                 * runtime br doesn't pop eh-stack entries. For a
+                 * one-shot br to a block / function-end / catch,
+                 * the leaked entry is absorbed by the static
+                 * `exception_handler_count * EH_ENTRY_CELLS`
+                 * reservation and dies at frame teardown — log
+                 * a warning so the shape shows up in load-time
+                 * diagnostics, but accept the module.
+                 *
+                 * If the br target is a LOOP entry, however,
+                 * every iteration's TRY push adds one more entry
+                 * to the eh-stack and eventually overwrites past
+                 * the static reservation (silently in release
+                 * builds since `bh_assert` is a no-op without
+                 * `BH_DEBUG`). Reject those modules at load time
+                 * — emitting cleanup at the br site would be the
+                 * other fix, but it complicates the hot dispatch
+                 * loop and the shape is rare in practice. */
+                {
                     uint32 leaked = count_try_blocks_crossed(
                         loader_ctx->frame_csp - 1, frame_csp_tmp);
-                    if (leaked > 0) {
+                    if (leaked > 0
+                        && frame_csp_tmp->label_type == LABEL_TYPE_LOOP) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "br to loop entry from inside "
+                                      "try-region not supported in fast "
+                                      "interpreter (would leak eh-stack "
+                                      "entries per iteration)");
+                        goto fail;
+                    }
+                    if (leaked > 0 && loader_ctx->p_code_compiled == NULL) {
                         LOG_WARNING("wasm fast-interp: br at func[%u] crosses "
                                     "%u try-region(s); each leaks one "
                                     "eh-stack entry until frame teardown",
@@ -13470,10 +13487,19 @@ re_scan:
                     goto fail;
 
 #if WASM_ENABLE_EXCE_HANDLING != 0 && WASM_ENABLE_FAST_INTERP != 0
-                if (loader_ctx->p_code_compiled == NULL) {
+                {
                     uint32 leaked = count_try_blocks_crossed(
                         loader_ctx->frame_csp - 1, frame_csp_tmp);
-                    if (leaked > 0) {
+                    if (leaked > 0
+                        && frame_csp_tmp->label_type == LABEL_TYPE_LOOP) {
+                        set_error_buf(error_buf, error_buf_size,
+                                      "br_if to loop entry from inside "
+                                      "try-region not supported in fast "
+                                      "interpreter (would leak eh-stack "
+                                      "entries per iteration)");
+                        goto fail;
+                    }
+                    if (leaked > 0 && loader_ctx->p_code_compiled == NULL) {
                         LOG_WARNING(
                             "wasm fast-interp: br_if at func[%u] crosses "
                             "%u try-region(s); each leaks one "
@@ -13550,10 +13576,19 @@ re_scan:
                     }
 
 #if WASM_ENABLE_EXCE_HANDLING != 0 && WASM_ENABLE_FAST_INTERP != 0
-                    if (loader_ctx->p_code_compiled == NULL) {
+                    {
                         uint32 leaked = count_try_blocks_crossed(
                             loader_ctx->frame_csp - 1, frame_csp_tmp);
-                        if (leaked > 0) {
+                        if (leaked > 0
+                            && frame_csp_tmp->label_type == LABEL_TYPE_LOOP) {
+                            set_error_buf(error_buf, error_buf_size,
+                                          "br_table to loop entry from inside "
+                                          "try-region not supported in fast "
+                                          "interpreter (would leak eh-stack "
+                                          "entries per iteration)");
+                            goto fail;
+                        }
+                        if (leaked > 0 && loader_ctx->p_code_compiled == NULL) {
                             LOG_WARNING(
                                 "wasm fast-interp: br_table[%u] at "
                                 "func[%u] crosses %u try-region(s); each "
