@@ -25,6 +25,15 @@
 #include "simde/wasm/simd128.h"
 #endif
 
+/* MSVC has no `__builtin_expect`; the cold-path hints below are
+ * GCC/Clang only. Provide a no-op fallback so the loop still
+ * compiles on the Windows MSVC build. Branch-predictor hints are
+ * an optimization, not correctness, so dropping them on MSVC is
+ * fine. */
+#if !defined(__GNUC__) && !defined(__clang__)
+#define __builtin_expect(expr, expected) (expr)
+#endif
+
 typedef int32 CellType_I32;
 typedef int64 CellType_I64;
 typedef float32 CellType_F32;
