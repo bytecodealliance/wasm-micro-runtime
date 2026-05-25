@@ -582,13 +582,11 @@ pthread_create_wrapper(wasm_exec_env_t exec_env,
 
     wasm_runtime_instantiation_args_set_defaults(&args);
     wasm_runtime_instantiation_args_set_default_stack_size(&args, stack_size);
+    wasm_runtime_instantiation_args_set_custom_data(
+        &args, wasm_runtime_get_custom_data(module_inst));
     if (!(new_module_inst = wasm_runtime_instantiate_internal(
               module, module_inst, exec_env, &args, NULL, 0)))
         return -1;
-
-    /* Set custom_data to new module instance */
-    wasm_runtime_set_custom_data_internal(
-        new_module_inst, wasm_runtime_get_custom_data(module_inst));
 
     wasm_native_inherit_contexts(new_module_inst, module_inst);
 

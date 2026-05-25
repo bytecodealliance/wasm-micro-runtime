@@ -2512,6 +2512,8 @@ wasm_instantiate(WASMModule *module, WASMModuleInstance *parent,
     module_inst->module = module;
     module_inst->e =
         (WASMModuleInstanceExtra *)((uint8 *)module_inst + extra_info_offset);
+    wasm_runtime_set_custom_data_internal(
+        (WASMModuleInstanceCommon *)module_inst, args->custom_data);
 #if WASM_ENABLE_THREAD_MGR != 0
     if (os_mutex_init(&module_inst->e->common.exception_lock) != 0) {
         wasm_runtime_free(module_inst);
