@@ -24,7 +24,7 @@ textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr *out,
 {
     struct sockaddr_in *v4;
 #ifdef IPPROTO_IPV6
-    struct sockaddr_in *v6;
+    struct sockaddr_in6 *v6;
 #endif
 
     assert(textual);
@@ -38,11 +38,11 @@ textual_addr_to_sockaddr(const char *textual, int port, struct sockaddr *out,
     }
 
 #ifdef IPPROTO_IPV6
-    v6 = (struct sockaddr_in *)out;
+    v6 = (struct sockaddr_in6 *)out;
     if (zsock_inet_pton(AF_INET6, textual, &v6->sin6_addr.s6_addr) == 1) {
         v6->sin6_family = AF_INET6;
         v6->sin6_port = htons(port);
-        *out_len = sizeof(struct sockaddr_in);
+        *out_len = sizeof(struct sockaddr_in6);
         return true;
     }
 #endif
@@ -67,7 +67,7 @@ sockaddr_to_bh_sockaddr(const struct sockaddr *sockaddr,
 #ifdef IPPROTO_IPV6
         case AF_INET6:
         {
-            struct sockaddr_in *addr = (struct sockaddr_in *)sockaddr;
+            struct sockaddr_in6 *addr = (struct sockaddr_in6 *)sockaddr;
             size_t i;
 
             bh_sockaddr->port = ntohs(addr->sin6_port);
@@ -245,7 +245,7 @@ os_socket_bind(bh_socket_t socket, const char *host, int *port)
     }
     else {
 #ifdef IPPROTO_IPV6
-        *port = ntohs(((struct sockaddr_in *)&addr)->sin6_port);
+        *port = ntohs(((struct sockaddr_in6 *)&addr)->sin6_port);
 #else
         return BHT_ERROR;
 #endif
@@ -906,10 +906,10 @@ os_socket_set_ip_add_membership(bh_socket_t socket,
             ((uint16_t *)mreq.ipv6mr_multiaddr.s6_addr)[i] =
                 imr_multiaddr->ipv6[i];
         }
-        mreq.ipv6mr_interface = imr_interface;
+        mreq.ipv6mr_ifindex = imr_interface;
 
-        if (setsockopt(socket->fd, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, &mreq,
-                       sizeof(mreq))
+        if (zsock_setsockopt(socket->fd, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP,
+                             &mreq, sizeof(mreq))
             != 0) {
             return BHT_ERROR;
         }
@@ -947,7 +947,7 @@ os_socket_set_ip_drop_membership(bh_socket_t socket,
             ((uint16_t *)mreq.ipv6mr_multiaddr.s6_addr)[i] =
                 imr_multiaddr->ipv6[i];
         }
-        mreq.ipv6mr_interface = imr_interface;
+        mreq.ipv6mr_ifindex = imr_interface;
 
         if (zsock_setsockopt(socket->fd, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP,
                              &mreq, sizeof(mreq))

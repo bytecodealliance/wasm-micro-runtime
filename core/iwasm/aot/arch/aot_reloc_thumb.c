@@ -438,7 +438,7 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
                      | ((lower & 0x7000) >> 4) | (lower & 0x00ff);
             offset = (offset ^ 0x8000) - 0x8000;
 
-            offset += (symbol_addr + reloc_addend);
+            offset += ((intptr_t)symbol_addr + reloc_addend);
 
             if (reloc_type == R_ARM_THM_MOVT_PREL
                 || reloc_type == R_ARM_THM_MOVW_PREL_NC)
