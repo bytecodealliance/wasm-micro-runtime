@@ -11,6 +11,7 @@
 #ifndef _LIB_EXPORT_H_
 #define _LIB_EXPORT_H_
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
