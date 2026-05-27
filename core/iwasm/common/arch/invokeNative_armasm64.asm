@@ -53,17 +53,15 @@ invokeNative
         mov     x21, x2                  ; x21 = nstacks
         mov     x22, sp                  ; save the sp before call function
 
-        ; Fill in floating-point registers
+        ; Fill in floating-point registers (Windows ARM64)
         ldp     d0, d1, [x20], #16
         ldp     d2, d3, [x20], #16
-        ldp     d4, d5, [x20], #16
-        ldp     d6, d7, [x20], #16
 
         ; Fill integer registers
-        ldp     x0, x1, [x20], #16       ; x0 = argv[8] = exec_env, x1 = argv[9]
-        ldp     x2, x3, [x20], #16
-        ldp     x4, x5, [x20], #16
-        ldp     x6, x7, [x20], #16
+        ldp     x0, x1, [x20], #16       ; x0 = exec_env, x1 = argv[1]
+        ldp     x2, x3, [x20], #16       ; x2 = argv[2], x3 = argv[3]
+        ldp     x4, x5, [x20], #16       ; x4 = argv[4], x5 = argv[5]
+        ldp     x6, x7, [x20], #16       ; x6 = argv[6], x7 = argv[7]
 
         ; Now x20 points to stack args
         cmp     x21, #0
