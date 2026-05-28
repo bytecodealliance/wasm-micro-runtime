@@ -191,7 +191,7 @@ aot_target_precheck_can_use_musttail(const AOTCompContext *comp_ctx)
         return false;
     }
     /*
-     * x86-64/i386: true
+     * x86-64/i386/hexagon: true
      *
      * others: assume true for now
      */
@@ -2286,7 +2286,8 @@ static ArchItem valid_archs[] = {
     { "thumbv8.1m.main", true },
     { "riscv32", true },
     { "riscv64", true },
-    { "arc", true }
+    { "arc", true },
+    { "hexagon", false }
 };
 
 static const char *valid_abis[] = {
@@ -3189,6 +3190,29 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
         }
 #endif
 
+        /* Hexagon: disable small-data addressing; AOT code has no GP
+         * register set up so GP-relative relocations cannot be resolved. */
+        {
+            bool is_hexagon = false;
+            if (arch && !strcmp(arch, "hexagon"))
+                is_hexagon = true;
+            else if (triple_norm && strstr(triple_norm, "hexagon"))
+                is_hexagon = true;
+
+            if (is_hexagon) {
+                if (features[0] != '\0') {
+                    if (!strstr(features, "-small-data")) {
+                        snprintf(features_buf, sizeof(features_buf),
+                                 "%s,-small-data", features);
+                        features = features_buf;
+                    }
+                }
+                else {
+                    features = "-small-data";
+                }
+            }
+        }
+
         /* Get target with triple, note that LLVMGetTargetFromTriple()
            return 0 when success, but not true. */
         if (LLVMGetTargetFromTriple(triple_norm, &target, &err) != 0) {
@@ -3406,7 +3430,8 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
     if (option->enable_simd && strcmp(comp_ctx->target_arch, "x86_64") != 0
         && strncmp(comp_ctx->target_arch, "aarch64", 7) != 0
-        && strcmp(comp_ctx->target_arch, "arc") != 0) {
+        && strcmp(comp_ctx->target_arch, "arc") != 0
+        && strcmp(comp_ctx->target_arch, "hexagon") != 0) {
         /* Disable simd if it isn't supported by target arch */
         option->enable_simd = false;
     }
@@ -3432,6 +3457,14 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
             goto fail;
         }
     }
+
+    /* Determine whether the target's SIMD/vector unit supports unaligned
+     * memory access.  This informs alignment annotations emitted for SIMD
+     * load/store IR. */
+    comp_ctx->target_supports_unaligned_simd =
+        !strcmp(comp_ctx->target_arch, "x86_64")
+        || !strncmp(comp_ctx->target_arch, "aarch64", 7)
+        || !strcmp(comp_ctx->target_arch, "hexagon");
 
     if (!(target_data_ref =
               LLVMCreateTargetDataLayout(comp_ctx->target_machine))) {

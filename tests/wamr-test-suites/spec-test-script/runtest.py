@@ -62,6 +62,7 @@ aot_target_options_map = {
     "riscv64_lp64f": ["--target=riscv64", "--target-abi=lp64f", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f", "--size-level=1"],
     "riscv64_lp64d": ["--target=riscv64", "--target-abi=lp64d", "--cpu=generic-rv64", "--cpu-features=+m,+a,+c,+f,+d", "--size-level=1"],
     "xtensa": ["--target=xtensa"],
+    "hexagon": ["--target=hexagon"],
 }
 
 # AOT compilation options mapping for XIP mode
@@ -267,7 +268,7 @@ def assert_prompt(runner, prompts, timeout, is_need_execute_result):
             log("Started with:\n%s" % header)
     else:
         log("Did not one of following prompt(s): %s" % repr(prompts))
-        log("    Got      : %s" % repr(r.buf))
+        log("    Got      : %s" % repr(runner.buf))
         raise Exception("Did not one of following prompt(s)")
 
 
@@ -780,6 +781,8 @@ def is_result_match_expected(out, expected):
 def test_assert(r, opts, mode, cmd, expected):
     log("Testing(%s) %s = %s" % (mode, cmd, expected))
     out = invoke(r, opts, cmd)
+    if out is None:
+        raise Exception("Timed out waiting for response to: %s" % cmd)
     if '\n' in out or ' ' in out:
         outs = [''] + out.split('\n')[1:]
         out = outs[-1]
