@@ -307,6 +307,17 @@ is_packed_type(uint8 type)
 {
     return (type == PACKED_TYPE_I8 || type == PACKED_TYPE_I16) ? true : false;
 }
+
+static bool
+is_defaultable_array_elem_type(uint8 elem_type, WASMRefType *elem_ref_type)
+{
+    if (!wasm_is_type_multi_byte_type(elem_type)) {
+        return true;
+    }
+
+    bh_assert(elem_ref_type);
+    return elem_ref_type->ref_ht_common.nullable;
+}
 #endif
 
 static bool
@@ -1395,6 +1406,16 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                             /* WASM_OP_ARRAY_NEW_DEFAULT */
                             WASMValue len_val;
                             uint32 len;
+
+                            if (!is_defaultable_array_elem_type(
+                                    array_type->elem_type,
+                                    array_type->elem_ref_type)) {
+                                set_error_buf(
+                                    error_buf, error_buf_size,
+                                    "array.new_default requires a defaultable "
+                                    "element type");
+                                goto fail;
+                            }
 
                             /* POP(i32) */
                             if (!pop_const_expr_stack(
@@ -15019,6 +15040,16 @@ re_scan:
                             }
                             else
                                 POP_REF(elem_type);
+                        }
+                        else if (opcode1 == WASM_OP_ARRAY_NEW_DEFAULT) {
+                            if (!is_defaultable_array_elem_type(
+                                    elem_type, array_type->elem_ref_type)) {
+                                set_error_buf(
+                                    error_buf, error_buf_size,
+                                    "array.new_default requires a defaultable "
+                                    "element type");
+                                goto fail;
+                            }
                         }
                         else if (opcode1 == WASM_OP_ARRAY_NEW_DATA) {
                             /* offset of data segment */
