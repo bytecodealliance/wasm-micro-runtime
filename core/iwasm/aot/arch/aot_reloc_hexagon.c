@@ -132,7 +132,7 @@ get_current_target(char *target_buf, uint32 target_buf_size)
 static bool
 is_duplex(uint32 insn)
 {
-    return (INST_PARSE_PACKET_END & insn) == 0;
+    return (insn & INST_PARSE_PACKET_END) == INST_PARSE_PACKET_END;
 }
 
 /* Instruction opcode → relocation mask table for R_HEX_6_X */
@@ -257,8 +257,8 @@ apply_mask(uint32 mask, uint32 data)
 
 /* Instruction templates with address = 0 */
 #define PLT_IMMEXT_TEMPLATE 0x00008000
-#define PLT_R28_TEMPLATE 0x7800c01c
-#define PLT_JUMPR_R28 0x529cc000
+#define PLT_R28_TEMPLATE 0x7800401c
+#define PLT_JUMPR_R28 0x529c4000
 
 #define MASK_R28_IMM 0x00df3fe0
 

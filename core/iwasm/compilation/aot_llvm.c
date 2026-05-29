@@ -3201,7 +3201,19 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
 
             if (is_hexagon) {
                 if (features[0] != '\0') {
-                    if (!strstr(features, "-small-data")) {
+                    /* Check for "-small-data" as a complete comma-delimited
+                     * token to avoid false matches on "-small-data-limit=N". */
+                    const char *sd = features;
+                    bool has_small_data = false;
+                    while ((sd = strstr(sd, "-small-data")) != NULL) {
+                        if ((sd == features || sd[-1] == ',')
+                            && (sd[11] == '\0' || sd[11] == ',')) {
+                            has_small_data = true;
+                            break;
+                        }
+                        sd++;
+                    }
+                    if (!has_small_data) {
                         int ret =
                             snprintf(features_buf, sizeof(features_buf),
                                      "%s,-small-data", features);
