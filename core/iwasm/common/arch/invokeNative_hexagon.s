@@ -26,10 +26,15 @@ invokeNative:
             memd(r29+#8) = r19:18
         }
 
-        // Save arguments to callee-saved registers
+        // Save arguments to callee-saved registers.
+        // Also clear r0 so that if argc == 0 we don't call the native
+        // function with r0 still holding the function pointer.  Reads
+        // happen before writes within a Hexagon packet, so r16 receives
+        // the original r0.
         {
             r16 = r0                    // r16 = function_ptr
             r17 = r1                    // r17 = argv
+            r0 = #0
         }
         {
             r18 = r2                    // r18 = argc
