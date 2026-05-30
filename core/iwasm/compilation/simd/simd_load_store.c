@@ -35,10 +35,15 @@ simd_load(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
         return NULL;
     }
 
-    /* The WASM alignment hint is advisory per spec; the runtime must handle
-     * any address correctly regardless of the hint. Always use align=1 so
-     * the backend emits safe unaligned access sequences on all targets. */
-    LLVMSetAlignment(data, 1);
+    /* On targets whose SIMD unit natively handles misaligned access (e.g.
+     * x86_64, aarch64), align=1 lets the backend pick the unaligned vector
+     * instruction directly.  On targets where it does not (e.g. Hexagon),
+     * align=1 expands to a byte-by-byte scalar sequence; instead pass the
+     * WASM alignment hint (1<<align) so the backend can select a wider
+     * load that matches the hint. */
+    LLVMSetAlignment(data, comp_ctx->target_supports_unaligned_simd
+                               ? 1
+                               : ((uint32)1 << align));
 
     return data;
 }
@@ -304,8 +309,10 @@ simd_store(AOTCompContext *comp_ctx, AOTFuncContext *func_ctx, uint32 align,
         return false;
     }
 
-    /* See simd_load: WASM alignment hint is advisory; always use align=1. */
-    LLVMSetAlignment(result, 1);
+    /* See simd_load for the alignment rationale. */
+    LLVMSetAlignment(result, comp_ctx->target_supports_unaligned_simd
+                                 ? 1
+                                 : ((uint32)1 << align));
 
     return true;
 }

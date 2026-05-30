@@ -3490,8 +3490,7 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
      * LLVM emit memd (64b double-word) pairs, which are ~20x faster. */
     comp_ctx->target_supports_unaligned_simd =
         !strcmp(comp_ctx->target_arch, "x86_64")
-        || !strncmp(comp_ctx->target_arch, "aarch64", 7)
-        || !strncmp(comp_ctx->target_arch, "arc", 3);
+        || !strncmp(comp_ctx->target_arch, "aarch64", 7);
 
     if (!(target_data_ref =
               LLVMCreateTargetDataLayout(comp_ctx->target_machine))) {
