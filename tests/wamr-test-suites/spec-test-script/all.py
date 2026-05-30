@@ -96,12 +96,18 @@ def ignore_the_case(
     if "i386" == target and case_name in ["float_exprs", "conversions"]:
         return True
 
-    # TODO: investigate Hexagon-specific failures:
-    # - float_exprs/conversions: Hexagon does not canonicalize NaN payloads
-    #   (sNaN propagation differs from spec expectations)
-    # - i32/i64: Hexagon asl/asr instructions use signed shift amounts,
-    #   causing clang to miscompile rotl/rotr when upper bits are set
-    # - simd_*: NaN propagation in pmin/pmax and lane/splat edge cases
+    # Hexagon-specific failures. These skips are workarounds for
+    # toolchain/spec gaps, not WAMR bugs:
+    # - float_exprs/conversions/f32_bitwise: Hexagon does not canonicalize
+    #   NaN payloads (sNaN propagation differs from spec expectations).
+    # - simd_f32x4_pmin_pmax / simd_f64x2_pmin_pmax: NaN propagation differs.
+    # - simd_lane / simd_splat: NaN-bearing lane/splat edge cases.
+    # - i32 / i64: clang miscompiles rotl/rotr on Hexagon because asl/asr
+    #   use signed shift amounts; observed as e.g. rotl returning
+    #   0xed3 instead of 0x579beed3.  These cases are spread across the
+    #   suites so we skip the whole suite until the clang fix lands.
+    #   TODO: when the underlying clang fix is in, narrow this skip to the
+    #   specific rotl/rotr asserts and re-enable the remaining arithmetic.
     if "hexagon" == target and case_name in [
         "float_exprs", "conversions", "f32_bitwise", "i32", "i64",
         "simd_f32x4_pmin_pmax", "simd_f64x2_pmin_pmax",
@@ -242,11 +248,15 @@ def test_case(
             CMD.append("--qemu")
             CMD.append("--qemu-firmware")
             CMD.append(qemu_firmware)
-        # Increase timeouts for QEMU emulation (default: 30s start, 20s test)
+        # Increase timeouts for QEMU emulation.  Defaults: 30s start, 20s
+        # test, 2s start-fail.  Under qemu user-mode (e.g. qemu-hexagon),
+        # both startup and trap-on-startup can take >>2s, so bump all three.
         CMD.append("--start-timeout")
         CMD.append("120")
         CMD.append("--test-timeout")
         CMD.append("120")
+        CMD.append("--start-fail-timeout")
+        CMD.append("30")
 
     if not clean_up_flag:
         CMD.append("--no_cleanup")

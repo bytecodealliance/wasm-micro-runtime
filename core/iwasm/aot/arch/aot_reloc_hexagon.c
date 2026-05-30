@@ -338,33 +338,40 @@ apply_relocation(AOTModule *module, uint8 *target_section_addr,
             /*
              * 22-bit PC-relative branch: (S + A - P) >> 2
              * 22-bit signed field, word-aligned: +-8MB byte range.
-             * For external symbols (symbol_index >= 0), use PLT
-             * trampoline if direct branch is out of range.
+             * If the direct branch is out of range and the symbol has a
+             * PLT entry (symbol_index >= 0), fall back to a PLT trampoline,
+             * which can reach an arbitrary 32-bit absolute address.
              */
             intptr_t result;
             CHECK_RELOC_OFFSET(sizeof(uint32));
 
-            if (symbol_index >= 0) {
-                /* External symbol: redirect through PLT */
+            result =
+                (intptr_t)((uintptr_t)symbol_addr + (intptr_t)reloc_addend
+                           - (uintptr_t)(target_section_addr + reloc_offset));
+
+            if (result >= (8 * BH_MB) || result < -(8 * BH_MB)) {
+                /* Direct branch out of range: try PLT trampoline. The PLT
+                 * entry is a fixed 3-instruction packet that jumps to the
+                 * resolved symbol address, so a non-zero addend cannot be
+                 * carried through it. */
+                if (symbol_index < 0 || reloc_addend != 0) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "AOT module load failed: "
+                                  "B22_PCREL target out of range.");
+                    return false;
+                }
                 uint8 *plt = (uint8 *)module->code + module->code_size
                              - get_plt_table_size()
                              + get_plt_item_size() * symbol_index;
-                result = (intptr_t)((uintptr_t)plt + (intptr_t)reloc_addend
+                result = (intptr_t)((uintptr_t)plt
                                     - (uintptr_t)(target_section_addr
                                                   + reloc_offset));
-            }
-            else {
-                result =
-                    (intptr_t)((uintptr_t)symbol_addr + (intptr_t)reloc_addend
-                               - (uintptr_t)(target_section_addr
-                                             + reloc_offset));
-            }
-
-            if (result >= (8 * BH_MB) || result < -(8 * BH_MB)) {
-                set_error_buf(error_buf, error_buf_size,
-                              "AOT module load failed: "
-                              "B22_PCREL target out of range.");
-                return false;
+                if (result >= (8 * BH_MB) || result < -(8 * BH_MB)) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "AOT module load failed: "
+                                  "B22_PCREL PLT trampoline out of range.");
+                    return false;
+                }
             }
 
             *(uint32 *)(target_section_addr + reloc_offset) |=

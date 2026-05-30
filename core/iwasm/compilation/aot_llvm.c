@@ -3196,7 +3196,8 @@ aot_create_comp_context(const AOTCompData *comp_data, aot_comp_option_t option)
             bool is_hexagon = false;
             if (arch && !strcmp(arch, "hexagon"))
                 is_hexagon = true;
-            else if (triple_norm && strstr(triple_norm, "hexagon"))
+            else if (triple_norm && !strncmp(triple_norm, "hexagon", 7)
+                     && (triple_norm[7] == '-' || triple_norm[7] == '\0'))
                 is_hexagon = true;
 
             if (is_hexagon) {
