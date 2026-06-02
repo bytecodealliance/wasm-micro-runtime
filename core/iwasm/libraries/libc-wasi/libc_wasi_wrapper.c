@@ -2019,7 +2019,8 @@ allocate_iovec_app_buffer(wasm_module_inst_t module_inst,
     }
 
     if (total_size >= UINT32_MAX
-        || !(buf_begin = wasm_runtime_malloc(total_size ? (uint32)total_size : 1))) {
+        || !(buf_begin =
+                 wasm_runtime_malloc(total_size ? (uint32)total_size : 1))) {
         return __WASI_ENOMEM;
     }
 
