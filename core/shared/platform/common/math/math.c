@@ -1408,7 +1408,8 @@ freebsd_pow(double x, double y)
     n = (hx>>31)+1;
        but ANSI C says a right shift of a signed negative quantity is
        implementation defined.  */
-    n = ((u_int32_t)hx >> 31) - 1;
+    /* equal to n = (hx < 0) - 1. But if it works, don't improve it */
+    n = (int32_t)((u_int32_t)hx >> 31) - 1;
 
     /* (x<0)**(non-int) is NaN */
     if ((n | yisint) == 0)
