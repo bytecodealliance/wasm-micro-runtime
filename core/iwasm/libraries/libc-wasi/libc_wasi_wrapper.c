@@ -1098,9 +1098,11 @@ wasi_poll_oneoff(wasm_exec_env_t exec_env, const wasi_subscription_t *in,
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr((void *)in, (uint64)sizeof(wasi_subscription_t))
-        || !validate_native_addr(out, (uint64)sizeof(wasi_event_t))
-        || !validate_native_addr(nevents_app, (uint64)sizeof(uint32)))
+    if (!validate_native_addr(nevents_app, (uint64)sizeof(uint32))
+        || !validate_native_addr((void *)in, (uint64)sizeof(wasi_subscription_t)
+                                                 * nsubscriptions)
+        || !validate_native_addr(out,
+                                 (uint64)sizeof(wasi_event_t) * nsubscriptions))
         return (wasi_errno_t)-1;
 
 #if WASM_ENABLE_THREAD_MGR == 0
