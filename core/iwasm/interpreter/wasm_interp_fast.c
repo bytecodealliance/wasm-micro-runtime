@@ -124,6 +124,40 @@ typedef float64 CellType_F64;
  * undefined while the entry is in TRY state. */
 #define EH_TRY_CATCH_STATE_BIT 0x80000000u
 #define EH_ENTRY_CELLS 2
+
+/* Base of the per-frame eh-stack, in cells from frame_lp.
+ *
+ * Frame setup (see the call-into-wasm-function path) reserves the
+ * eh-stack region *after* the locals + value stack and, in GC builds,
+ * *after* the frame_ref root bitmap as well. The accumulation order in
+ * `all_cell_num` is:
+ *
+ *   locals + value stack : cell_num_of_local_stack cells
+ *   [GC only] frame_ref  : (cell_num_of_local_stack + 3) / 4 cells
+ *   eh-stack             : exception_handler_count * EH_ENTRY_CELLS
+ *
+ * where cell_num_of_local_stack = param_cell_num + local_cell_num
+ * + max_stack_cell_num. The runtime pointer must skip the same regions.
+ * In non-GC builds the frame_ref bitmap doesn't exist, so the offset
+ * collapses to cell_num_of_local_stack — leaving non-GC behavior byte-
+ * for-byte identical. In GC builds, omitting the bitmap term made the
+ * eh-stack alias frame->frame_ref (both start at
+ * frame_lp + cell_num_of_local_stack), so WASM_OP_TRY corrupted GC
+ * roots; adding it lands the eh-stack in its reserved trailing cells. */
+#if WASM_ENABLE_GC != 0
+#define EH_FRAME_REF_CELLS(cur_func, cur_wasm_func)            \
+    ((((cur_func)->param_cell_num + (cur_func)->local_cell_num \
+       + (cur_wasm_func)->max_stack_cell_num)                  \
+      + 3)                                                     \
+     / 4)
+#else
+#define EH_FRAME_REF_CELLS(cur_func, cur_wasm_func) 0
+#endif
+
+#define EH_STACK_BASE(frame_lp, cur_func, cur_wasm_func)                  \
+    ((frame_lp) + (cur_func)->param_cell_num + (cur_func)->local_cell_num \
+     + (cur_wasm_func)->max_stack_cell_num                                \
+     + EH_FRAME_REF_CELLS(cur_func, cur_wasm_func))
 #endif
 
 static inline uint32
@@ -1968,9 +2002,7 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
              * (which is what graphql-validation-porf-accurate's
              * single try-block is). */
             WASMFunction *cur_wasm_func = cur_func->u.func;
-            uint32 *eh_stack = frame_lp + cur_func->param_cell_num
-                               + cur_func->local_cell_num
-                               + cur_wasm_func->max_stack_cell_num;
+            uint32 *eh_stack = EH_STACK_BASE(frame_lp, cur_func, cur_wasm_func);
             uint32 i;
             for (i = frame->eh_count; i > 0; i--) {
                 uint32 *cells = eh_stack + (i - 1) * EH_ENTRY_CELLS;
@@ -2153,9 +2185,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                  * cold path; CALL / LOAD / STORE are untouched. */
                 uint32 eh_idx = read_uint32(frame_ip);
                 WASMFunction *cur_wasm_func = cur_func->u.func;
-                uint32 *eh_stack = frame_lp + cur_func->param_cell_num
-                                   + cur_func->local_cell_num
-                                   + cur_wasm_func->max_stack_cell_num;
+                uint32 *eh_stack =
+                    EH_STACK_BASE(frame_lp, cur_func, cur_wasm_func);
                 bh_assert(frame->eh_count
                           < cur_wasm_func->exception_handler_count);
                 eh_stack[frame->eh_count * EH_ENTRY_CELLS + 0] = eh_idx;
@@ -2203,9 +2234,8 @@ wasm_interp_call_func_bytecode(WASMModuleInstance *module,
                  * untouched. */
                 uint32 depth = read_uint32(frame_ip);
                 WASMFunction *cur_wasm_func = cur_func->u.func;
-                uint32 *eh_stack = frame_lp + cur_func->param_cell_num
-                                   + cur_func->local_cell_num
-                                   + cur_wasm_func->max_stack_cell_num;
+                uint32 *eh_stack =
+                    EH_STACK_BASE(frame_lp, cur_func, cur_wasm_func);
                 uint32 i;
                 uint32 catch_seen = 0;
                 for (i = frame->eh_count; i > 0; i--) {
