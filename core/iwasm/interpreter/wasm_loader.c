@@ -11340,6 +11340,33 @@ count_try_blocks_crossed(BranchBlock *cur_block, BranchBlock *target_block)
     return count;
 }
 
+/* A try-crossing br only leaks one eh-stack entry harmlessly when it
+ * executes once. If the br (or its target) is enclosed by a LOOP that
+ * can re-execute it, every iteration re-pushes a TRY entry and the
+ * leaked entries eventually overrun the static
+ * `exception_handler_count * EH_ENTRY_CELLS` reservation.
+ *
+ * The direct case (br target IS a loop entry) is handled separately by
+ * the caller. This walks the control frames the br does NOT exit — the
+ * target frame `target_block` and everything below it down to the
+ * function frame — looking for an enclosing LOOP. Such a loop keeps the
+ * br live after it lands, so the per-iteration leak applies.
+ *
+ * Returns true if a try-crossing br landing at `target_block` would
+ * leak per loop iteration via an enclosing loop. */
+static bool
+br_try_leak_in_enclosing_loop(BranchBlock *frame_csp_bottom,
+                              BranchBlock *target_block)
+{
+    BranchBlock *b;
+    for (b = target_block; b >= frame_csp_bottom; b--) {
+        if (b->label_type == LABEL_TYPE_LOOP) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static BranchBlock *
 check_branch_block_for_delegate(WASMLoaderContext *loader_ctx, uint8 **p_buf,
                                 uint8 *buf_end, char *error_buf,
@@ -12568,16 +12595,39 @@ re_scan:
                      * of frame_offset and synthesize consecutive
                      * cell offsets `(first, first+1, ...)`; that
                      * matches the runtime invariant that an n-cell
-                     * value occupies n consecutive frame_lp cells. */
+                     * value occupies n consecutive frame_lp cells.
+                     *
+                     * In stack-polymorphic code (after an
+                     * `unreachable`, e.g. `unreachable; throw $tag`)
+                     * the offset stack does NOT actually hold the
+                     * tag's params, so reading
+                     * `frame_offset - param_cell_num` would underflow
+                     * the offset stack. The validation loop below
+                     * tolerates the missing values via the same
+                     * polymorphic short-circuit used by the
+                     * block-param path; mirror it here by emitting
+                     * zeroed placeholder source offsets, which keeps
+                     * pass-1 / pass-2 size accounting balanced while
+                     * avoiding the underflow (this THROW is
+                     * unreachable at runtime anyway). */
                     uint32 pi, c, cell_so_far = 0;
+                    int32 throw_avail_cell =
+                        (int32)(loader_ctx->stack_cell_num
+                                - cur_block->stack_cell_num);
+                    bool stack_has_params =
+                        !(throw_avail_cell < (int32)tag_type->param_cell_num
+                          && cur_block->is_stack_polymorphic);
                     int16 *base =
                         loader_ctx->frame_offset - tag_type->param_cell_num;
                     for (pi = 0; pi < tag_type->param_count; pi++) {
                         uint32 this_cells =
                             wasm_value_type_cell_num(tag_type->types[pi]);
-                        int16 first_slot = base[cell_so_far];
+                        int16 first_slot =
+                            stack_has_params ? base[cell_so_far] : 0;
                         for (c = 0; c < this_cells; c++) {
-                            emit_operand(loader_ctx, (int16)(first_slot + c));
+                            emit_operand(
+                                loader_ctx,
+                                stack_has_params ? (int16)(first_slot + c) : 0);
                         }
                         cell_so_far += this_cells;
                     }
@@ -12909,12 +12959,18 @@ re_scan:
                         int16 dst = cur_block->dynamic_offset;
                         if (src != dst) {
                             skip_label();
-                            if (cell == 4)
+#if WASM_ENABLE_SIMDE != 0
+                            if (cell == 4) {
                                 emit_label(EXT_OP_COPY_STACK_TOP_V128);
-                            else if (cell == 2)
-                                emit_label(EXT_OP_COPY_STACK_TOP_I64);
+                            }
                             else
+#endif
+                                if (cell == 2) {
+                                emit_label(EXT_OP_COPY_STACK_TOP_I64);
+                            }
+                            else {
                                 emit_label(EXT_OP_COPY_STACK_TOP);
+                            }
                             emit_operand(loader_ctx, src);
                             emit_operand(loader_ctx, dst);
                             emit_label(opcode);
@@ -13160,12 +13216,18 @@ re_scan:
                         int16 dst = cur_block->dynamic_offset;
                         if (src != dst) {
                             skip_label();
-                            if (cell == 4)
+#if WASM_ENABLE_SIMDE != 0
+                            if (cell == 4) {
                                 emit_label(EXT_OP_COPY_STACK_TOP_V128);
-                            else if (cell == 2)
-                                emit_label(EXT_OP_COPY_STACK_TOP_I64);
+                            }
                             else
+#endif
+                                if (cell == 2) {
+                                emit_label(EXT_OP_COPY_STACK_TOP_I64);
+                            }
+                            else {
                                 emit_label(EXT_OP_COPY_STACK_TOP);
+                            }
                             emit_operand(loader_ctx, src);
                             emit_operand(loader_ctx, dst);
                             emit_label(opcode);
@@ -13455,10 +13517,11 @@ re_scan:
                     uint32 leaked = count_try_blocks_crossed(
                         loader_ctx->frame_csp - 1, frame_csp_tmp);
                     if (leaked > 0
-                        && frame_csp_tmp->label_type == LABEL_TYPE_LOOP) {
+                        && br_try_leak_in_enclosing_loop(
+                            loader_ctx->frame_csp_bottom, frame_csp_tmp)) {
                         set_error_buf(error_buf, error_buf_size,
-                                      "br to loop entry from inside "
-                                      "try-region not supported in fast "
+                                      "br out of try-region from inside a "
+                                      "loop not supported in fast "
                                       "interpreter (would leak eh-stack "
                                       "entries per iteration)");
                         goto fail;
@@ -13491,10 +13554,11 @@ re_scan:
                     uint32 leaked = count_try_blocks_crossed(
                         loader_ctx->frame_csp - 1, frame_csp_tmp);
                     if (leaked > 0
-                        && frame_csp_tmp->label_type == LABEL_TYPE_LOOP) {
+                        && br_try_leak_in_enclosing_loop(
+                            loader_ctx->frame_csp_bottom, frame_csp_tmp)) {
                         set_error_buf(error_buf, error_buf_size,
-                                      "br_if to loop entry from inside "
-                                      "try-region not supported in fast "
+                                      "br_if out of try-region from inside a "
+                                      "loop not supported in fast "
                                       "interpreter (would leak eh-stack "
                                       "entries per iteration)");
                         goto fail;
@@ -13580,10 +13644,11 @@ re_scan:
                         uint32 leaked = count_try_blocks_crossed(
                             loader_ctx->frame_csp - 1, frame_csp_tmp);
                         if (leaked > 0
-                            && frame_csp_tmp->label_type == LABEL_TYPE_LOOP) {
+                            && br_try_leak_in_enclosing_loop(
+                                loader_ctx->frame_csp_bottom, frame_csp_tmp)) {
                             set_error_buf(error_buf, error_buf_size,
-                                          "br_table to loop entry from inside "
-                                          "try-region not supported in fast "
+                                          "br_table out of try-region from "
+                                          "inside a loop not supported in fast "
                                           "interpreter (would leak eh-stack "
                                           "entries per iteration)");
                             goto fail;
