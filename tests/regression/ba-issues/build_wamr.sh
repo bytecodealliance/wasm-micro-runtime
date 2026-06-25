@@ -66,4 +66,8 @@ build_iwasm "-DWAMR_BUILD_BRANCH_HINTS=1" "default-branch-hints-enabled"
 # build default iwasm for testing tail call with fast-interp
 build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_FAST_INTERP=1 -DWAMR_BUILD_TAIL_CALL=1 -DWAMR_BUILD_LIBC_WASI=0" "default-tail-call-wasi-disabled"
 
+# build classic-interp iwasm with ASAN and hardware bounds checks disabled
+# for poll_oneoff host memory safety regressions
+build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_AOT=0 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_SIMD=0 -DWAMR_DISABLE_HW_BOUND_CHECK=1" "poll-oneoff-asan"
+
 # TODO: add more version of iwasm, for example, sgx version

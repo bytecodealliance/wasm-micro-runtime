@@ -1856,6 +1856,38 @@
         {
             "deprecated": false,
             "ids": [
+                980004
+            ],
+            "runtime": "iwasm-poll-oneoff-asan",
+            "file": "poll_oneoff_out_of_bounds_write.wasm",
+            "mode": "classic-interp",
+            "options": "-f _start",
+            "argument": "",
+            "expected return": {
+                "ret code": 1,
+                "stdout content": "Exception: out of bounds memory access",
+                "description": "poll_oneoff rejects an undersized event buffer for multi-subscription WASI calls"
+            }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                980005
+            ],
+            "runtime": "iwasm-poll-oneoff-asan",
+            "file": "poll_oneoff_out_of_bounds_read.wasm",
+            "mode": "classic-interp",
+            "options": "-f _start",
+            "argument": "",
+            "expected return": {
+                "ret code": 1,
+                "stdout content": "Exception: out of bounds memory access",
+                "description": "poll_oneoff rejects an undersized subscription array for multi-subscription WASI calls"
+            }
+        },
+        {
+            "deprecated": false,
+            "ids": [
                 4916
             ],
             "runtime": "iwasm-default-tail-call-wasi-disabled",

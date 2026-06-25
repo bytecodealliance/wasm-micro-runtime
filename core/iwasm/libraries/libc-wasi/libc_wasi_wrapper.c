@@ -1093,13 +1093,16 @@ wasi_poll_oneoff(wasm_exec_env_t exec_env, const wasi_subscription_t *in,
     wasi_ctx_t wasi_ctx = get_wasi_ctx(module_inst);
     struct fd_table *curfds = wasi_ctx_get_curfds(wasi_ctx);
     size_t nevents = 0;
+    uint64 subscriptions_size =
+        (uint64)nsubscriptions * sizeof(wasi_subscription_t);
+    uint64 events_size = (uint64)nsubscriptions * sizeof(wasi_event_t);
     wasi_errno_t err;
 
     if (!wasi_ctx)
         return (wasi_errno_t)-1;
 
-    if (!validate_native_addr((void *)in, (uint64)sizeof(wasi_subscription_t))
-        || !validate_native_addr(out, (uint64)sizeof(wasi_event_t))
+    if (!validate_native_addr((void *)in, subscriptions_size)
+        || !validate_native_addr(out, events_size)
         || !validate_native_addr(nevents_app, (uint64)sizeof(uint32)))
         return (wasi_errno_t)-1;
 
