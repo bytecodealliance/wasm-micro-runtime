@@ -739,7 +739,7 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
     uint8 flag, *p_float;
     uint32 i;
     ConstExprContext const_expr_ctx = { 0 };
-    WASMValue cur_value;
+    WASMValue cur_value = { 0 };
 #if WASM_ENABLE_GC != 0
     uint32 opcode1, type_idx;
     uint8 opcode;
@@ -1005,6 +1005,12 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 uint8 type1;
                 CHECK_BUF(p, p_end, 1);
                 type1 = read_uint8(p);
+                if (type1 != VALUE_TYPE_FUNCREF
+                    && type1 != VALUE_TYPE_EXTERNREF) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "invalid reference type");
+                    goto fail;
+                }
                 cur_value.ref_index = NULL_REF;
                 if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
                                            &cur_value,
