@@ -1766,25 +1766,41 @@
             "options": "-f test",
             "argument": "",
             "expected return": {
-                "ret code": 1,
-                "stdout content": "Exception: unreachable",
-                "description": "no 'frame offset overflow'"
+              "ret code": 1,
+              "stdout content": "Exception: unreachable",
+              "description": "no 'frame offset overflow'"
             }
         },
         {
             "deprecated": false,
             "ids": [
-                980001
+                980004
             ],
-            "runtime": "iwasm-llvm-jit",
-            "file": "v128.wasm",
+            "runtime": "iwasm-poll-oneoff-asan",
+            "file": "poll_oneoff_out_of_bounds_write.wasm",
             "mode": "classic-interp",
-            "options": "-f main",
+            "options": "-f _start",
             "argument": "",
             "expected return": {
                 "ret code": 1,
-                "stdout content": "Exception: unsupported opcode",
-                "description": "classic-interp will exit gracefully when meeting simd opcodes"
+                "stdout content": "Exception: out of bounds memory access",
+                "description": "wasi_poll_oneoff() rejects an undersized event buffer for multi-subscription WASI calls"
+            }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                980005
+            ],
+            "runtime": "iwasm-poll-oneoff-asan",
+            "file": "poll_oneoff_out_of_bounds_read.wasm",
+            "mode": "classic-interp",
+            "options": "-f _start",
+            "argument": "",
+            "expected return": {
+              "ret code": 1,
+              "stdout content": "Exception: out of bounds memory access",
+              "description": "wasi_poll_oneoff() rejects an undersized subscription array for multi-subscription WASI calls"
             }
         }
     ]

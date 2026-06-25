@@ -60,4 +60,8 @@ build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LIBC_WASI=
 # build multi-tier-jit iwasm for testing classic-interp, fast-jit, llvm-jit and multi-tier-jit with libc-wasi disabled
 build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_FAST_JIT=1 -DWAMR_BUILD_JIT=1 -DWAMR_BUILD_LIBC_WASI=0" "multi-tier-jit-wasi-disabled"
 
+# build classic-interp iwasm with ASAN and hardware bounds checks disabled
+# for poll_oneoff host memory safety regressions
+build_iwasm "-DWAMR_BUILD_REF_TYPES=1 -DWAMR_BUILD_FAST_INTERP=0 -DWAMR_BUILD_AOT=0 -DWAMR_BUILD_JIT=0 -DWAMR_BUILD_FAST_JIT=0 -DWAMR_BUILD_SIMD=0 -DWAMR_DISABLE_HW_BOUND_CHECK=1" "poll-oneoff-asan"
+
 # TODO: add more version of iwasm, for example, sgx version
