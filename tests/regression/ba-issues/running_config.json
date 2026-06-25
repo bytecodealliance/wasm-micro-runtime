@@ -1802,6 +1802,57 @@
               "stdout content": "Exception: out of bounds memory access",
               "description": "wasi_poll_oneoff() rejects an undersized subscription array for multi-subscription WASI calls"
             }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                980002
+            ],
+            "runtime": "iwasm-default-branch-hints-enabled",
+            "file": "branch_hint_invalid_free.wasm",
+            "mode": "fast-interp",
+            "options": "",
+            "argument": "",
+            "expected return": {
+                "ret code": 255,
+                "stdout content": "WASM module load failed: invalid number of branch hints: expected at most 0, got 2",
+                "description": ""
+            }
+
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                980003
+            ],
+            "runtime": "iwasm-default-branch-hints-enabled",
+            "file": "branch_hint_null_deref.wasm",
+            "mode": "fast-interp",
+            "options": "",
+            "argument": "",
+            "expected return": {
+                "ret code": 255,
+                "stdout content": "WASM module load failed: invalid number of branch hints: expected at most 0, got 42949672",
+                "description": ""
+            }
+
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                980004
+            ],
+            "runtime": "iwasm-default",
+            "file": "const_table_overflow.wasm",
+            "mode": "fast-interp",
+            "options": "-f test",
+            "argument": "",
+            "expected return": {
+                "ret code": 0,
+                "stdout content": "0x1:i32",
+                "description": "heap-buffer-overflow in fast interp loader when const table overflow check fires prematurely due to duplicate accumulation"
+            }
+
         }
     ]
 }
