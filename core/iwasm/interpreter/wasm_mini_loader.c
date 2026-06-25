@@ -500,6 +500,13 @@ load_init_expr(WASMModule *module, const uint8 **p_buf, const uint8 *buf_end,
                 CHECK_BUF(p, p_end, 1);
                 type1 = read_uint8(p);
 
+                if (type1 != VALUE_TYPE_FUNCREF
+                    && type1 != VALUE_TYPE_EXTERNREF) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "invalid reference type");
+                    goto fail;
+                }
+
                 cur_value.ref_index = UINT32_MAX;
                 if (!push_const_expr_stack(&const_expr_ctx, flag, type1,
                                            &cur_value,
