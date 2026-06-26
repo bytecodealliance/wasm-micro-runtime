@@ -1774,68 +1774,18 @@
         {
             "deprecated": false,
             "ids": [
-                980004
+                980001
             ],
-            "runtime": "iwasm-poll-oneoff-asan",
-            "file": "poll_oneoff_out_of_bounds_write.wasm",
+            "runtime": "iwasm-llvm-jit",
+            "file": "v128.wasm",
             "mode": "classic-interp",
-            "options": "-f _start",
+            "options": "-f main",
             "argument": "",
             "expected return": {
                 "ret code": 1,
-                "stdout content": "Exception: out of bounds memory access",
-                "description": "wasi_poll_oneoff() rejects an undersized event buffer for multi-subscription WASI calls"
+                "stdout content": "Exception: unsupported opcode",
+                "description": "classic-interp will exit gracefully when meeting simd opcodes"
             }
-        },
-        {
-            "deprecated": false,
-            "ids": [
-                980005
-            ],
-            "runtime": "iwasm-poll-oneoff-asan",
-            "file": "poll_oneoff_out_of_bounds_read.wasm",
-            "mode": "classic-interp",
-            "options": "-f _start",
-            "argument": "",
-            "expected return": {
-              "ret code": 1,
-              "stdout content": "Exception: out of bounds memory access",
-              "description": "wasi_poll_oneoff() rejects an undersized subscription array for multi-subscription WASI calls"
-            }
-        },
-        {
-            "deprecated": false,
-            "ids": [
-                980002
-            ],
-            "runtime": "iwasm-default-branch-hints-enabled",
-            "file": "branch_hint_invalid_free.wasm",
-            "mode": "fast-interp",
-            "options": "",
-            "argument": "",
-            "expected return": {
-                "ret code": 255,
-                "stdout content": "WASM module load failed: invalid number of branch hints: expected at most 0, got 2",
-                "description": ""
-            }
-
-        },
-        {
-            "deprecated": false,
-            "ids": [
-                980003
-            ],
-            "runtime": "iwasm-default-branch-hints-enabled",
-            "file": "branch_hint_null_deref.wasm",
-            "mode": "fast-interp",
-            "options": "",
-            "argument": "",
-            "expected return": {
-                "ret code": 255,
-                "stdout content": "WASM module load failed: invalid number of branch hints: expected at most 0, got 42949672",
-                "description": ""
-            }
-
         },
         {
             "deprecated": false,
@@ -1853,6 +1803,38 @@
                 "description": "heap-buffer-overflow in fast interp loader when const table overflow check fires prematurely due to duplicate accumulation"
             }
 
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                980005
+            ],
+            "runtime": "iwasm-poll-oneoff-asan",
+            "file": "poll_oneoff_out_of_bounds_write.wasm",
+            "mode": "classic-interp",
+            "options": "-f _start",
+            "argument": "",
+            "expected return": {
+                "ret code": 1,
+                "stdout content": "Exception: out of bounds memory access",
+                "description": "wasi_poll_oneoff() rejects an undersized event buffer for multi-subscription WASI calls"
+            }
+        },
+        {
+            "deprecated": false,
+            "ids": [
+                980006
+            ],
+            "runtime": "iwasm-poll-oneoff-asan",
+            "file": "poll_oneoff_out_of_bounds_read.wasm",
+            "mode": "classic-interp",
+            "options": "-f _start",
+            "argument": "",
+            "expected return": {
+              "ret code": 1,
+              "stdout content": "Exception: out of bounds memory access",
+              "description": "wasi_poll_oneoff() rejects an undersized subscription array for multi-subscription WASI calls"
+            }
         }
     ]
 }

@@ -1,3 +1,21 @@
+## WAMR-2.4.5
+
+### Breaking Changes
+
+### New Features
+
+### Bug Fixes
+
+- CVE-2026-54914. Fix a potential heap Buffer Overflow in WASI poll_oneoff.
+- CVE-2026-54913. Fix a potential partial uninitialized memory read in load_init_expr.
+- CVE-2026-54912. Fix a potential heap buffer overflow in fast interpreter.
+
+### Enhancements
+
+### Others
+
+---
+
 ## WAMR-2.4.4
 
 ### Breaking Changes
