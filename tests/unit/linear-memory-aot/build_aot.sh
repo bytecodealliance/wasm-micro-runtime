@@ -14,7 +14,14 @@ file_names=("mem_grow_out_of_bounds_01" "mem_grow_out_of_bounds_02"
 WORKDIR="$PWD"
 WAMRC_ROOT_DIR="${WORKDIR}/../../../wamr-compiler"
 WAMRC="${WAMRC_ROOT_DIR}/build/wamrc"
-WAST2WASM="/opt/wabt/bin/wat2wasm"
+
+if [ -x "/opt/wabt/bin/wat2wasm" ]; then
+    WAST2WASM="/opt/wabt/bin/wat2wasm"
+elif command -v wat2wasm >/dev/null 2>&1; then
+    WAST2WASM="$(command -v wat2wasm)"
+else
+    echo "please install wabt first" && exit -1
+fi
 
 # build wamrc if not exist
 if [ ! -s "$WAMRC" ]; then
@@ -24,11 +31,6 @@ if [ ! -s "$WAMRC" ]; then
     fi
     cmake -B build && cmake --build build -j $(nproc)
     cd $WORKDIR
-fi
-
-# error if not exist
-if [ ! -s "$WAST2WASM" ]; then
-    echo "please install wabt first" && exit -1
 fi
 
 # Detect host architecture

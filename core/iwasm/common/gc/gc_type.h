@@ -168,6 +168,19 @@ wasm_is_type_multi_byte_type(uint8 type)
                : false;
 }
 
+/* Whether array.new_default may use this array element type */
+inline static bool
+wasm_is_defaultable_array_elem_type(uint8 elem_type,
+                                    const WASMRefType *elem_ref_type)
+{
+    if (!wasm_is_type_multi_byte_type(elem_type)) {
+        return true;
+    }
+
+    bh_assert(elem_ref_type);
+    return elem_ref_type->ref_ht_common.nullable;
+}
+
 /* Whether a reference type is a funcref type */
 inline static bool
 wasm_is_reftype_funcref(uint8 type)

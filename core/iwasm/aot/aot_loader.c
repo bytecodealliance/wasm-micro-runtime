@@ -9,6 +9,9 @@
 #include "../common/wasm_runtime_common.h"
 #include "../common/wasm_native.h"
 #include "../common/wasm_loader_common.h"
+#if WASM_ENABLE_GC != 0
+#include "../common/gc/gc_type.h"
+#endif
 #include "../compilation/aot.h"
 #if WASM_ENABLE_AOT_VALIDATOR != 0
 #include "aot_validator.h"
@@ -1324,6 +1327,7 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
         case INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT:
         case INIT_EXPR_TYPE_ARRAY_NEW_FIXED:
         {
+            AOTArrayType *array_type = NULL;
             uint32 array_elem_type;
             uint32 type_idx, length;
             WASMArrayNewInitValues *init_values = NULL;
@@ -1340,7 +1344,16 @@ load_init_expr(const uint8 **p_buf, const uint8 *buf_end, AOTModule *module,
                 goto fail;
             }
 
+            array_type = (AOTArrayType *)module->types[type_idx];
+
             if (init_expr_type == INIT_EXPR_TYPE_ARRAY_NEW_DEFAULT) {
+                if (!wasm_is_defaultable_array_elem_type(
+                        array_type->elem_type, array_type->elem_ref_type)) {
+                    set_error_buf(error_buf, error_buf_size,
+                                  "array.new_default requires a defaultable "
+                                  "element type");
+                    goto fail;
+                }
                 expr->u.unary.v.array_new_default.type_index = type_idx;
                 expr->u.unary.v.array_new_default.length = length;
             }

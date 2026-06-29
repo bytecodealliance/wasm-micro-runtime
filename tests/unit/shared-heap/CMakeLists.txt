@@ -16,7 +16,14 @@ set(WAMR_BUILD_MEMORY64 0)
 set(WAMR_BUILD_SHARED_HEAP 1)
 
 # Compile wasm modules
-set(WASI_SDK_DIR "/opt/wasi-sdk")
+get_filename_component(WAMR_ROOT_DIR "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+if (NOT DEFINED WASI_SDK_DIR)
+  if (EXISTS "${WAMR_ROOT_DIR}/build-tools/wasi-sdk-25.0-x86_64-linux/share/cmake/wasi-sdk.cmake")
+    set(WASI_SDK_DIR "${WAMR_ROOT_DIR}/build-tools/wasi-sdk-25.0-x86_64-linux")
+  else ()
+    set(WASI_SDK_DIR "/opt/wasi-sdk")
+  endif ()
+endif ()
 set(WASISDK_TOOLCHAIN "${WASI_SDK_DIR}/share/cmake/wasi-sdk.cmake")
 
 include(ExternalProject)
