@@ -34,6 +34,9 @@ function (compile_sample SOURCE_FILE)
     COMMAND ${WAMRC_BIN} --size-level=0 --enable-dump-call-stack -o ${AOT_FILE} ${WASM_FILE}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
   )
+  # Force the .wasm producer to run before the AOT step under `make -j`;
+  # the DEPENDS line above only names the file, not the CMake target.
+  add_dependencies(${FILE_NAME}_aot ${FILE_NAME})
 
   ## wasm + sourcemap
   if (DEFINED EMSCRIPTEN)
