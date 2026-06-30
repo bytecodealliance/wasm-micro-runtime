@@ -5688,6 +5688,7 @@ handle_branch_hint_section(const uint8 *buf, const uint8 *buf_end,
                 goto fail;
             }
 
+            CHECK_BUF(buf, buf_end, 1);
             uint8 data = *buf++;
             if (data == 0x00)
                 new_hint->is_likely = false;
