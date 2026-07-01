@@ -602,9 +602,29 @@ jobs:
           mkdir build && cd build
           cmake ..
           cmake --build . --config Debug --parallel 4
-          ./iwasm wasm-apps/trap.wasm | grep "#" > call_stack.txt
-          ./iwasm wasm-apps/trap.aot | grep "#" > call_stack_aot.txt
-          bash -x ../symbolicate.sh
+          cd ..
+          ./verify.sh
+
+      - name: Install binaryen (for debug-tools-optimized)
+        run: |
+          sudo mkdir -p /opt/binaryen
+          curl -L https://github.com/WebAssembly/binaryen/releases/download/version_117/binaryen-version_117-x86_64-linux.tar.gz \
+            | sudo tar xz -C /opt/binaryen --strip-components=1
+          /opt/binaryen/bin/wasm-opt --version
+
+      - name: Build Sample [debug-tools-optimized]
+        run: |
+          cd samples/debug-tools-optimized
+          for INTERP_FLAG in "" "-DUSE_FAST_INTERP=ON"; do
+            rm -rf build && mkdir build && cd build
+            cmake .. $INTERP_FLAG
+            make -j$(nproc)
+            cd ..
+            ./verify.sh oob wasm
+            ./verify.sh oob aot
+            ./verify.sh stackoverflow wasm
+            ./verify.sh stackoverflow aot
+          done
 
       - name: Build Sample [native-stack-overflow]
         run: |
