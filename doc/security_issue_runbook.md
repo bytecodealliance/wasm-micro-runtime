@@ -17,6 +17,7 @@ For information on what types of issues are considered security vulnerabilities 
 ## Step 3: Communication and Collaboration
 
 - Use Non-Public Channels: Communicate through non-public channels, preferably email, during the resolution process. Avoid filing issues or pull requests on third-party repositories if they are involved.
+- Work should be done in a private fork created for the security advisory.  Additional collaborators should be invited to this private fork as needed.
 - Workaround for Third-Party Dependencies: If third-party dependencies are involved, consider a workaround to patch the issue quickly unless the third party can release a fix promptly.
 
 ## Step 4: Finalizing and Preparing for Release
@@ -28,7 +29,7 @@ For information on what types of issues are considered security vulnerabilities 
 ``` markdown
 > A template for the advanced disclosure email
 
-The Wamr project would like to announce a forthcoming security release.
+The WAMR project would like to announce a forthcoming security release.
 
 The release will be made available on approximately YYYY-MM-DD. Additionally, an advisory will be made available on the same date at https://github.com/advisories.
 
@@ -41,9 +42,9 @@ The highest severity issue fixed in this release is classified as XXX based on t
 - Run Full Test Suite: Run the full test suite locally for the main branch. Attempt to run as much of the CI matrix locally as possible.
 
 ## Step 6: Public Release and Communication
-
+On Release day:
 - Open Version Bump PRs: Open version bump pull requests on the public repository without including patch notes or release notes for the fix.
-- Manually Make PRs from Private Fork: Transfer the necessary pull requests from the private fork to the public repository.
+- Manually Make PRs from Private Fork:  Make public PRs from all of the previously-created PRs on the private fork. You'll need to push the changes to your own personal repository for this (in order to submit PRs to the official repository).  It's ok since it's release day and time to make these fixes public anyway. NOTE:  DO NOT merge via the GitHub Security Advisory as this has generally not worked well.
 - Merge and Trigger Releases: Merge the version bump PRs and trigger the release process.
 - Publish GitHub Advisories: Delete the private forks and use the Big Green Button to publish the advisory.
 - Send Security Release Email: Send a follow-up email to sec-announce@bytecodealliance.org describing the security release. Other communication channels can also be used to inform users about the security release.
