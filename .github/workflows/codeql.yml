@@ -9,17 +9,35 @@ on:
   push:
     branches:
       - dev/**
+  # scan pull requests so findings surface on the PR instead of only post-merge
+  pull_request:
   # midnight UTC on the latest commit on the main branch
   schedule:
     - cron: "0 0 * * *"
   # allow to be triggered manually
   workflow_dispatch:
 
+# Serialize CodeQL runs per PR / branch. Only a pull_request cancels its own
+# superseded run - once a PR head is replaced the old analysis is throwaway.
+# Pushes to dev/** and the nightly cron are left to finish, so branch and
+# scheduled scans are never dropped.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   analyze:
-    # only run this job if the repository is not a fork
-    # if want to run this job on a fork, please remove the if condition
-    if: github.repository == 'bytecodealliance/wasm-micro-runtime'
+    # Pull requests: only scan when the head branch lives in this same
+    # repository. A pull request from a fork runs with a read-only GITHUB_TOKEN
+    # (no `security-events: write`), so uploading results and reading
+    # code-scanning alerts is not permitted and the job would fail; skip it
+    # cleanly instead. Other events (push to dev/**, the nightly cron, manual
+    # runs) keep the original behavior of running only on the upstream repo.
+    if: >-
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+      || (github.event_name != 'pull_request' &&
+          github.repository == 'bytecodealliance/wasm-micro-runtime')
     name: Analyze
     # Runner size impacts CodeQL analysis time. To learn more, please see:
     #   - https://gh.io/recommended-hardware-resources-for-running-codeql
