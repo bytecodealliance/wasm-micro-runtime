@@ -707,6 +707,16 @@ jobs:
            && matrix.running_mode != 'fast-jit' && matrix.running_mode != 'jit' && matrix.running_mode != 'multi-tier-jit')
         run: echo "TEST_ON_X86_32=true" >> $GITHUB_ENV
 
+      - name: Free up disk space
+        if: env.USE_LLVM == 'true'
+        run: |
+          # Restoring the prebuilt LLVM libraries cache overflows the runner's
+          # small default free space and fails with "no space left on device".
+          # Drop preinstalled toolchains this job never uses (~20 GB freed).
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+
       #only download llvm libraries in jit and aot mode
       - name: Get LLVM libraries
         if: env.USE_LLVM == 'true'
