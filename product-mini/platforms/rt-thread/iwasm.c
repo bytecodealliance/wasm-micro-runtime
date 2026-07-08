@@ -27,7 +27,15 @@ wasm_vprintf(wasm_exec_env_t env, const char *fmt, va_list va)
 static int
 wasm_vsprintf(wasm_exec_env_t env, char *buf, const char *fmt, va_list va)
 {
-    return vsprintf(buf, fmt, va);
+    wasm_module_inst_t module_inst = wasm_runtime_get_module_inst(env);
+    uint8_t *native_end_addr;
+
+    if (!wasm_runtime_get_native_addr_range(module_inst, (uint8_t *)buf, NULL,
+                                            &native_end_addr)) {
+        return -1;
+    }
+
+    return vsnprintf(buf, (size_t)(native_end_addr - (uint8_t *)buf), fmt, va);
 }
 
 static int
