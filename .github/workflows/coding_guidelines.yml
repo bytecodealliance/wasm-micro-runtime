@@ -19,12 +19,28 @@ permissions:
 
 jobs:
   compliance_job:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: checkout
         uses: actions/checkout@v7.0.0
         with:
           fetch-depth: 0
+
+      - name: install clang-format-21
+        run: |
+          # clang-format 21 matches the LLVM shipped in Xcode 26/27, so
+          # contributors who build or auto-format on macOS/Xcode get the same
+          # result as CI and other LLVM-built platforms - no formatting
+          # surprises. It is a small (~50 MB) apt package from apt.llvm.org,
+          # not a full LLVM toolchain download.
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
+            | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null
+          . /etc/os-release
+          echo "deb http://apt.llvm.org/${VERSION_CODENAME}/ llvm-toolchain-${VERSION_CODENAME}-21 main" \
+            | sudo tee /etc/apt/sources.list.d/llvm.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang-format-21
+          clang-format-21 --version
 
       # github.event.pull_request.base.label = ${{github.repository}}/${{github.base_ref}}
       - name: Run Coding Guidelines Checks
