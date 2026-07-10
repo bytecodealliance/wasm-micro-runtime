@@ -12,8 +12,8 @@ import subprocess
 import sys
 import unittest
 
-CLANG_FORMAT_CMD = "clang-format-14"
-GIT_CLANG_FORMAT_CMD = "git-clang-format-14"
+CLANG_FORMAT_CMD = "clang-format-18"
+GIT_CLANG_FORMAT_CMD = "git-clang-format-18"
 
 # glob style patterns
 EXCLUDE_PATHS = [
@@ -92,29 +92,29 @@ def run_clang_format(file_path: Path, root: Path) -> bool:
 
 def run_clang_format_diff(root: Path, commits: str) -> bool:
     """
-    Use `clang-format-14` or `git-clang-format-14` to check code format of
+    Use `clang-format-18` or `git-clang-format-18` to check code format of
     the PR, with a commit range specified. It is required to format the
     code before committing the PR, or it might fail to pass the CI check:
 
-    1. Install clang-format-14.0.0
+    1. Install clang-format-18
 
     You can download the package from
     https://github.com/llvm/llvm-project/releases
     and install it.
 
     For Debian/Ubuntu, we can probably use
-    `sudo apt-get install clang-format-14`.
+    `sudo apt-get install clang-format-18`.
 
-    Homebrew has it as a part of llvm@14.
+    Homebrew has it as a part of llvm@18.
     ```shell
-    brew install llvm@14
-    /usr/local/opt/llvm@14/bin/clang-format
+    brew install llvm@18
+    /usr/local/opt/llvm@18/bin/clang-format
     ```
 
     2. Format the C/C++ source file
     ``` shell
     cd path/to/wamr/root
-    clang-format-14 --style file -i path/to/file
+    clang-format-18 --style file -i path/to/file
     ```
 
     The code wrapped by `/* clang-format off */` and `/* clang-format on */`
