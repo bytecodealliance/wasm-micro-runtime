@@ -12,8 +12,8 @@ import subprocess
 import sys
 import unittest
 
-CLANG_FORMAT_CMD = "clang-format-14"
-GIT_CLANG_FORMAT_CMD = "git-clang-format-14"
+CLANG_FORMAT_CMD = "clang-format-20"
+GIT_CLANG_FORMAT_CMD = "git-clang-format-20"
 
 # glob style patterns
 EXCLUDE_PATHS = [

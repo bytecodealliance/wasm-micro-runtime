@@ -26,6 +26,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: install clang-format-20
+        run: |
+          # clang-format 20 is not preinstalled on the runner; install it (and
+          # git-clang-format-20) from apt.llvm.org for the running Ubuntu
+          # release so the pinned version does not drift with the image.
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
+            | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc >/dev/null
+          . /etc/os-release
+          echo "deb http://apt.llvm.org/${VERSION_CODENAME}/ llvm-toolchain-${VERSION_CODENAME}-20 main" \
+            | sudo tee /etc/apt/sources.list.d/llvm.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang-format-20
+          clang-format-20 --version
+
       # github.event.pull_request.base.label = ${{github.repository}}/${{github.base_ref}}
       - name: Run Coding Guidelines Checks
         run: /usr/bin/env python3 ./ci/coding_guidelines_check.py --commits ${{ github.event.pull_request.base.sha }}..HEAD
