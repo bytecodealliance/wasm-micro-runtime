@@ -67,13 +67,13 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
 
       # since jobs.id can't contain the dot character
       # it is hard to use `format` to assemble the cache key
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -235,13 +235,13 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
         if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS')
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -286,13 +286,13 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
         with:
           submodules: recursive
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -470,12 +470,12 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
         if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -523,7 +523,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
 
       - name: install-wasi-sdk-wabt
         uses: ./.github/actions/install-wasi-sdk-wabt
@@ -532,7 +532,7 @@ jobs:
         
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -667,6 +667,43 @@ jobs:
           ./build.sh --aot
           ./run.sh --aot
 
+  addr2line_tests_multi_sdk:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: checkout
+        uses: actions/checkout@v6.0.2
+
+      - name: Install wasi-sdk 29.0
+        run: |
+          sudo mkdir -p /opt/wasi-sdk-29.0-x86_64-linux
+          curl -L https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-29/wasi-sdk-29.0-x86_64-linux.tar.gz \
+            | sudo tar xz -C /opt/wasi-sdk-29.0-x86_64-linux --strip-components=1
+
+      - name: Install wasi-sdk 33.0
+        run: |
+          sudo mkdir -p /opt/wasi-sdk-33.0-x86_64-linux
+          curl -L https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-33/wasi-sdk-33.0-x86_64-linux.tar.gz \
+            | sudo tar xz -C /opt/wasi-sdk-33.0-x86_64-linux --strip-components=1
+
+      - name: Install wabt
+        run: |
+          sudo mkdir -p /opt/wabt
+          curl -L https://github.com/WebAssembly/wabt/releases/download/1.0.34/wabt-1.0.34-ubuntu.tar.gz \
+            | sudo tar xz -C /opt/wabt --strip-components=1
+
+      - name: Install binaryen
+        run: |
+          sudo mkdir -p /opt/binaryen
+          curl -L https://github.com/WebAssembly/binaryen/releases/download/version_117/binaryen-version_117-x86_64-linux.tar.gz \
+            | sudo tar xz -C /opt/binaryen --strip-components=1
+
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Run addr2line.py tests across both SDKs
+        working-directory: test-tools/addr2line/tests
+        run: ./run_tests.sh --multi-sdk -v
+
   test:
     needs: [build_iwasm, build_llvm_libraries_on_ubuntu, build_wamrc]
     runs-on: ${{ matrix.os }}
@@ -725,7 +762,7 @@ jobs:
             sanitizer: ubsan
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
 
       - name: install-wasi-sdk-wabt
         if: matrix.test_option == '$WASI_TEST_OPTIONS'
@@ -754,7 +791,7 @@ jobs:
       - name: Get LLVM libraries
         if: env.USE_LLVM == 'true'
         id: retrieve_llvm_libs
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin

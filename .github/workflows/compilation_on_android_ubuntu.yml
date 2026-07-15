@@ -100,13 +100,13 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_ubuntu_2204.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
 
       # since jobs.id can't contain the dot character
       # it is hard to use `format` to assemble the cache key
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -271,13 +271,13 @@ jobs:
             extra_options: "-DWAMR_BUILD_SIMD=0"
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
         if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS')
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -322,13 +322,13 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
         with:
           submodules: recursive
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -381,11 +381,11 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -446,12 +446,12 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
         if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -503,11 +503,11 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -602,9 +602,29 @@ jobs:
           mkdir build && cd build
           cmake ..
           cmake --build . --config Debug --parallel 4
-          ./iwasm wasm-apps/trap.wasm | grep "#" > call_stack.txt
-          ./iwasm wasm-apps/trap.aot | grep "#" > call_stack_aot.txt
-          bash -x ../symbolicate.sh
+          cd ..
+          ./verify.sh
+
+      - name: Install binaryen (for debug-tools-optimized)
+        run: |
+          sudo mkdir -p /opt/binaryen
+          curl -L https://github.com/WebAssembly/binaryen/releases/download/version_117/binaryen-version_117-x86_64-linux.tar.gz \
+            | sudo tar xz -C /opt/binaryen --strip-components=1
+          /opt/binaryen/bin/wasm-opt --version
+
+      - name: Build Sample [debug-tools-optimized]
+        run: |
+          cd samples/debug-tools-optimized
+          for INTERP_FLAG in "" "-DUSE_FAST_INTERP=ON"; do
+            rm -rf build && mkdir build && cd build
+            cmake .. $INTERP_FLAG
+            make -j$(nproc)
+            cd ..
+            ./verify.sh oob wasm
+            ./verify.sh oob aot
+            ./verify.sh stackoverflow wasm
+            ./verify.sh stackoverflow aot
+          done
 
       - name: Build Sample [native-stack-overflow]
         run: |
@@ -677,7 +697,7 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
 
       - name: Set-up OCaml
         uses: ocaml/setup-ocaml@v3
@@ -707,21 +727,11 @@ jobs:
            && matrix.running_mode != 'fast-jit' && matrix.running_mode != 'jit' && matrix.running_mode != 'multi-tier-jit')
         run: echo "TEST_ON_X86_32=true" >> $GITHUB_ENV
 
-      - name: Free up disk space
-        if: env.USE_LLVM == 'true'
-        run: |
-          # Restoring the prebuilt LLVM libraries cache overflows the runner's
-          # small default free space and fails with "no space left on device".
-          # Drop preinstalled toolchains this job never uses (~20 GB freed).
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
-            /opt/hostedtoolcache/CodeQL /usr/local/share/boost
-          df -h /
-
       #only download llvm libraries in jit and aot mode
       - name: Get LLVM libraries
         if: env.USE_LLVM == 'true'
         id: retrieve_llvm_libs
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
