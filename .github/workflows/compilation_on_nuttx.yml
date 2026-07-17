@@ -45,16 +45,62 @@ concurrency:
 
 env:
   WASI_SDK_PATH: "/opt/wasi-sdk"
+  NUTTX_IMAGE: "ghcr.io/apache/nuttx/apache-nuttx-ci-linux@sha256:d9261eacf6c6ebe656c571757751c803e8f04c3ae9b820320a5ea5dd57b7205a"
+  # Bump BLOATY_REF to update bloaty. The size-report cache below is keyed on
+  # it, so a new ref rebuilds bloaty and refreshes the cache automatically.
+  BLOATY_REF: "34f4a66559ad4938c1e629e9b5f54630b2b4d7b0"
 
 permissions:
   contents: read
 
 jobs:
-  build_iwasm_on_nuttx:
+  # Build bloaty once and cache it, keyed on BLOATY_REF (a new ref -> cache
+  # miss -> rebuild + refresh). The matrix below restores the prebuilt binary
+  # instead of every leg compiling bloaty and its protobuf/abseil submodules.
+  build_bloaty:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/apache/nuttx/apache-nuttx-ci-linux@sha256:d9261eacf6c6ebe656c571757751c803e8f04c3ae9b820320a5ea5dd57b7205a
+    steps:
+      - name: Restore or seed the bloaty cache
+        id: cache
+        uses: actions/cache@v6
+        with:
+          path: bloaty-bin
+          key: bloaty-${{ env.BLOATY_REF }}-ubuntu-latest
 
+      - name: Free disk space
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sudo rm -rf /opt/hostedtoolcache /usr/local/lib/android \
+            /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /usr/local/share/powershell /usr/share/swift 2>/dev/null || true
+          sudo docker image prune -af || true
+
+      - name: Checkout Bloaty
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/checkout@v7.0.0
+        with:
+          repository: google/bloaty
+          submodules: recursive
+          path: bloaty
+          ref: ${{ env.BLOATY_REF }}
+
+      - name: Build bloaty (inside the NuttX CI image)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/work" -w /work \
+            "${NUTTX_IMAGE}" bash -exc 'cmake -Bbuild -GNinja bloaty && cmake --build build'
+          mkdir -p bloaty-bin
+          cp build/bloaty bloaty-bin/bloaty
+
+  build_iwasm_on_nuttx:
+    needs: build_bloaty
+    runs-on: ubuntu-latest
+    # The build runs inside the apache NuttX CI image, but this is deliberately
+    # NOT a `container:` job. A container job pulls the (large) image at job
+    # init, before any step runs, and the runner's default free space is not
+    # enough for the image plus the build -> "no space left on device". Instead
+    # we free the unused preinstalled toolchains first, then run the build with
+    # `docker run`.
     strategy:
       matrix:
         nuttx_board_config: [
@@ -83,9 +129,18 @@ jobs:
           - "CONFIG_INTERPRETERS_WAMR_AOT CONFIG_INTERPRETERS_WAMR_FAST CONFIG_INTERPRETERS_WAMR_LIBC_BUILTIN"
           - "CONFIG_INTERPRETERS_WAMR_AOT CONFIG_INTERPRETERS_WAMR_CLASSIC"
           - "CONFIG_INTERPRETERS_WAMR_AOT CONFIG_INTERPRETERS_WAMR_CLASSIC CONFIG_INTERPRETERS_WAMR_LIBC_WASI"
-          - "CONFIG_INTERPRETERS_WAMR_AOT CONFIG_INTERPRETERS_WAMR_CLASSIC CONFIG_INTERPRETERS_WAMR_LIBC_WASI"
 
     steps:
+      - name: Free disk space
+        run: |
+          # The apache NuttX CI image is large; reclaim the preinstalled
+          # toolchains we don't use so the image + build fit on the runner.
+          sudo rm -rf /opt/hostedtoolcache /usr/local/lib/android \
+            /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /usr/local/share/powershell /usr/share/swift 2>/dev/null || true
+          sudo docker image prune -af || true
+          df -h /
+
       - name: Checkout NuttX
         uses: actions/checkout@v7.0.0
         with:
@@ -106,45 +161,43 @@ jobs:
           repository: ${{ github.repository }}
           path: apps/interpreters/wamr/wamr
 
-      - name: Configure WAMR
-        working-directory: nuttx
-        run: |
-          tools/configure.sh ${{ matrix.nuttx_board_config }}
-          kconfig-tweak --disable CONFIG_RP2040_UF2_BINARY
-          kconfig-tweak --disable CONFIG_RP23XX_UF2_BINARY
-          kconfig-tweak --enable CONFIG_PSEUDOFS_SOFTLINKS
-          kconfig-tweak --enable CONFIG_INTERPRETERS_WAMR
-          kconfig-tweak --enable CONFIG_INTERPRETERS_IWASM_TASK
-          kconfig-tweak --set-val CONFIG_INTERPRETERS_WAMR_PRIORITY 100
-          kconfig-tweak --set-val CONFIG_INTERPRETERS_WAMR_STACKSIZE 8192
-          for x in ${{ matrix.wamr_config_option }}; do
-            kconfig-tweak --enable $x
-          done
-
-      - name: Build
-        working-directory: nuttx
-        run: make -j$(nproc) EXTRAFLAGS=-Werror
-
-      - name: Checkout Bloaty
-        uses: actions/checkout@v7.0.0
+      - name: Restore prebuilt bloaty
+        uses: actions/cache/restore@v6
         with:
-          repository: google/bloaty
-          submodules: recursive
-          path: bloaty
-          ref: 34f4a66559ad4938c1e629e9b5f54630b2b4d7b0
+          path: bloaty-bin
+          key: bloaty-${{ env.BLOATY_REF }}-ubuntu-latest
+          fail-on-cache-miss: true
 
-      - name: Build Bloaty
+      - name: Configure and build NuttX (inside the NuttX CI image)
         run: |
-          cmake -Bbuild -GNinja bloaty
-          cmake --build build
+          docker run --rm -v "${{ github.workspace }}:/work" -w /work/nuttx \
+            "${NUTTX_IMAGE}" bash -exc '
+              tools/configure.sh ${{ matrix.nuttx_board_config }}
+              kconfig-tweak --disable CONFIG_RP2040_UF2_BINARY
+              kconfig-tweak --disable CONFIG_RP23XX_UF2_BINARY
+              kconfig-tweak --enable CONFIG_PSEUDOFS_SOFTLINKS
+              kconfig-tweak --enable CONFIG_INTERPRETERS_WAMR
+              kconfig-tweak --enable CONFIG_INTERPRETERS_IWASM_TASK
+              kconfig-tweak --set-val CONFIG_INTERPRETERS_WAMR_PRIORITY 100
+              kconfig-tweak --set-val CONFIG_INTERPRETERS_WAMR_STACKSIZE 8192
+              for x in ${{ matrix.wamr_config_option }}; do
+                kconfig-tweak --enable $x
+              done
+              make -j$(nproc) EXTRAFLAGS=-Werror
+            '
 
-      - name: Size Report
+      - name: Size Report (bloaty, inside the NuttX CI image)
         run: |
-          echo "Build target: ${{ matrix.nuttx_board_config }}"
-          echo "WAMR build config: ${{ matrix.wamr_config_option }}"
-          echo "WAMR size:"
-          build/bloaty -d compileunits --source-filter wamr nuttx/nuttx
-          echo "libc-builtin size (if enabled):"
-          build/bloaty -d compileunits --source-filter libc-builtin nuttx/nuttx
-          echo "libc-wasi size (if enabled):"
-          build/bloaty -d compileunits --source-filter libc-wasi nuttx/nuttx
+          # Run the prebuilt bloaty (restored from the cache above) against the
+          # NuttX ELF, inside the same image it was built in.
+          docker run --rm -v "${{ github.workspace }}:/work" -w /work \
+            "${NUTTX_IMAGE}" bash -exc '
+              echo "Build target: ${{ matrix.nuttx_board_config }}"
+              echo "WAMR build config: ${{ matrix.wamr_config_option }}"
+              echo "WAMR size:"
+              bloaty-bin/bloaty -d compileunits --source-filter wamr nuttx/nuttx
+              echo "libc-builtin size (if enabled):"
+              bloaty-bin/bloaty -d compileunits --source-filter libc-builtin nuttx/nuttx
+              echo "libc-wasi size (if enabled):"
+              bloaty-bin/bloaty -d compileunits --source-filter libc-wasi nuttx/nuttx
+            '
