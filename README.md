@@ -1,5 +1,29 @@
 # WebAssembly Micro Runtime
 
+## Notice: Moving WAMR's Home
+The Wasm Micro Runtime (WAMR) project will begin transitioning to a new home on Monday, July 27, 2026, with the process expected to be completed by Friday, July 31, 2026.
+
+This marks the beginning of an exciting new chapter for WAMR. Following discussions between the WAMR maintainers and the Bytecode Alliance, it was jointly agreed that WAMR would continue its development as an independent open source project. While this changes the project's organizational home, it does not change WAMR's mission, maintainers, or commitment to the community. The same people and teams who have built and supported WAMR will continue to lead the project, and we're excited about the opportunities ahead as we continue to grow WAMR together with our community. 
+
+During the week in transition (Monday 27 July - Friday July 31) we will be moving the GitHub repositories we use to new locations. We hope to keep the disruption to a minimum during this week, and as our GitHub repositories are moving, we will be posting updates on our progress via our mailing list - please feel free to join this to stay informed. Please visit this URL [https://groups.google.com/g/wamr-dev](https://groups.google.com/g/wamr-dev), and click “join group”. 
+
+Once this transition process completes there will be no impact for users of WAMR. The project will continue to be run and continue to be supported by the same people and teams that support WAMR today. The only visible change will be the new GitHub repository locations we will use. GitHub should redirect you automatically, but just in case the table below lists the old and new locations of the repositories we use.
+
+The WAMR project joined the Bytecode Alliance on May 3rd 2019  -  about 7 years ago. The Bytecode Alliance is home to some amazing projects and people and we’d like to thank them for all the help and support, and to wish our friends at the Bytecode Alliance all the best for the future.
+
+Speaking of the future, the WAMR team has some exciting plans for the project. Once this transition is complete we hope to share these plans with the wider community via our mailing list and new GitHub repositories. Please do join the mailing list as we’d love to hear your feedback [https://groups.google.com/g/wamr-dev](https://groups.google.com/g/wamr-dev).
+
+### Location Table
+
+| Description | Current Location | New Location |
+| --- | --- | --- |
+| **Wasm Micro Runtime** | https://GitHub.com/bytecodealliance/wasm-micro-runtime | https://GitHub.com/wasm-micro-runtime/wasm-micro-runtime |
+| **wamr-rust-dsk** |https://GitHub.com/bytecodealliance/wamr-rust-sdk | https://GitHub.com/wasm-micro-runtime/wamr-rust-sdk |
+| **wamr-app-framework** | https://GitHub.com/bytecodealliance/wamr-app-framework | https://GitHub.com/wasm-micro-runtime/wamr-app-framework |
+| **wamr-python** | https://GitHub.com/bytecodealliance/wamr-python | https://GitHub.com/wasm-micro-runtime/wamr-python |
+
+---
+
 
 **A [Bytecode Alliance][BA] project**
 
