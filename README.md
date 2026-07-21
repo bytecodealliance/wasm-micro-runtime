@@ -17,10 +17,12 @@ Speaking of the future, the WAMR team has some exciting plans for the project. O
 
 | Description | Current Location | New Location |
 | --- | --- | --- |
-| **Wasm Micro Runtime** | https://GitHub.com/bytecodealliance/wasm-micro-runtime | https://GitHub.com/wasm-micro-runtime/wasm-micro-runtime |
-| **wamr-rust-dsk** |https://GitHub.com/bytecodealliance/wamr-rust-sdk | https://GitHub.com/wasm-micro-runtime/wamr-rust-sdk |
-| **wamr-app-framework** | https://GitHub.com/bytecodealliance/wamr-app-framework | https://GitHub.com/wasm-micro-runtime/wamr-app-framework |
-| **wamr-python** | https://GitHub.com/bytecodealliance/wamr-python | https://GitHub.com/wasm-micro-runtime/wamr-python |
+| **Wasm Micro Runtime** | https://github.com/bytecodealliance/wasm-micro-runtime | https://github.com/wasm-micro-runtime/wasm-micro-runtime |
+| **wamr-rust-dsk** |https://github.com/bytecodealliance/wamr-rust-sdk | https://github.com/wasm-micro-runtime/wamr-rust-sdk |
+| **wamr-app-framework** | https://github.com/bytecodealliance/wamr-app-framework | https://github.com/wasm-micro-runtime/wamr-app-framework |
+| **wamr-python** | https://github.com/bytecodealliance/wamr-python | https://github.com/wasm-micro-runtime/wamr-python |
+
+
 
 ---
 
