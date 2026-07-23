@@ -89,11 +89,11 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_arm_macos.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -191,13 +191,13 @@ jobs:
             extra_options: "-DWAMR_BUILD_SIMD=0"
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
 
       # only download llvm cache when needed
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
         if: endsWith(matrix.make_options_run_mode, '_JIT_BUILD_OPTIONS')
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -253,12 +253,12 @@ jobs:
 
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
         if: (!endsWith(matrix.make_options, '_INTERP_BUILD_OPTIONS'))
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -311,7 +311,7 @@ jobs:
             llvm_cache_key: ${{ needs.build_llvm_libraries_on_arm_macos.outputs.cache_key }}
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v6.0.3
 
       - name: install-wasi-sdk-wabt
         uses: ./.github/actions/install-wasi-sdk-wabt
@@ -366,7 +366,7 @@ jobs:
 
       - name: Get LLVM libraries
         id: retrieve_llvm_libs
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: |
             ./core/deps/llvm/build/bin
@@ -413,9 +413,8 @@ jobs:
           mkdir build && cd build
           cmake ..
           cmake --build . --config Debug --parallel 4
-          ./iwasm wasm-apps/trap.wasm | grep "#" > call_stack.txt
-          ./iwasm wasm-apps/trap.aot | grep "#" > call_stack_aot.txt
-          bash -x ../symbolicate.sh
+          cd ..
+          ./verify.sh
 
       - name: Build Sample [native-stack-overflow]
         run: |
