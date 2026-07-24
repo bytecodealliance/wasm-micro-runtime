@@ -1,5 +1,7 @@
 .*
 !.gitignore
+!.devcontainer
+!.github
 
 .cache
 .clangd
