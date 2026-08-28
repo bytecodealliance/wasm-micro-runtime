@@ -98,8 +98,8 @@ set (WAMR_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 include (${WAMR_ROOT_DIR}/build-scripts/runtime_lib.cmake)
 add_library(vmlib ${WAMR_RUNTIME_LIB_SOURCE})
 
-set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
-if (NOT WAMR_BUILD_PLATFORM STREQUAL "darwin")
+if (NOT WAMR_BUILD_PLATFORM STREQUAL "darwin"
+    AND NOT WAMR_BUILD_PLATFORM STREQUAL "windows")
   set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -pie -fPIE")
 endif ()
 
@@ -117,5 +117,11 @@ add_executable (test_invoke_native main.c test_invoke_native.c ${UNCOMMON_SHARED
 
 install (TARGETS test_invoke_native DESTINATION bin)
 
-target_link_libraries (test_invoke_native vmlib ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
-
+if (WAMR_BUILD_PLATFORM STREQUAL "windows")
+  target_link_libraries (test_invoke_native vmlib ntdll)
+  if (MINGW)
+    target_link_libraries (test_invoke_native ws2_32)
+  endif ()
+else ()
+  target_link_libraries (test_invoke_native vmlib ${LLVM_AVAILABLE_LIBS} -lm -ldl -lpthread)
+endif ()

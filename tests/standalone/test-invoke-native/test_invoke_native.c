@@ -5,6 +5,8 @@
 
 #include "wasm_runtime.h"
 
+static bool test_failed;
+
 static void
 test_native_args1(WASMModuleInstance *module_inst, int arg0, uint64_t arg1,
                   float arg2, double arg3, int arg4, int64_t arg5, int64_t arg6,
@@ -26,6 +28,18 @@ test_native_args1(WASMModuleInstance *module_inst, int arg0, uint64_t arg1,
     printf("arg16: %f, arg17: 0x%X%08X, arg18: 0x%X%08X, arg19: %f\n", arg16,
            (int32)(arg17 >> 32), (int32)arg17, (int32)(arg18 >> 32),
            (int32)arg18, arg19);
+
+    if (arg0 != 0x12345678 || arg1 != 0xFFFFFFFF87654321ULL
+        || arg2 != 1234.5678f || arg3 != 567890.1234 || arg4 != 0x11111111
+        || (uint64)arg5 != 0xAAAAAAAABBBBBBBBULL || arg6 != 0x7788888899LL
+        || arg7 != 0x3456 || arg8 != 8888.7777 || arg9 != 7777.8888f
+        || arg10 != 0x66666 || arg11 != 999999.88888 || arg12 != 555555.22f
+        || arg13 != 0xBBBBBAAAAAAAALL || arg14 != 0x3333AAAABBBBULL
+        || arg15 != 88.77f || arg16 != 9999.01234 || arg17 != 0x1111122222222LL
+        || arg18 != 0x444455555555ULL || arg19 != 77.88f) {
+        printf("test_native_args1 validation failed\n");
+        test_failed = true;
+    }
 }
 
 static void
@@ -49,6 +63,18 @@ test_native_args2(WASMModuleInstance *module_inst, uint64_t arg1, float arg2,
     printf("arg16: %f, arg17: 0x%X%08X, arg18: 0x%X%08X, arg19: %f\n", arg16,
            (int32)(arg17 >> 32), (int32)arg17, (int32)(arg18 >> 32),
            (int32)arg18, arg19);
+
+    if (arg1 != 0xFFFFFFFF87654321ULL || arg2 != 1234.5678f
+        || arg3 != 567890.1234 || arg4 != 0x11111111
+        || (uint64)arg5 != 0xAAAAAAAABBBBBBBBULL || arg6 != 0x7788888899LL
+        || arg7 != 0x3456 || arg8 != 8888.7777 || arg9 != 7777.8888f
+        || arg10 != 0x66666 || arg11 != 999999.88888 || arg12 != 555555.22f
+        || arg13 != 0xBBBBBAAAAAAAALL || arg14 != 0x3333AAAABBBBULL
+        || arg15 != 88.77f || arg16 != 9999.01234 || arg17 != 0x1111122222222LL
+        || arg18 != 0x444455555555ULL || arg19 != 77.88f) {
+        printf("test_native_args2 validation failed\n");
+        test_failed = true;
+    }
 }
 
 static int32
@@ -108,31 +134,35 @@ typedef struct WASMTypeTest {
     uint16 result_count;
     uint16 param_cell_num;
     uint16 ret_cell_num;
+    uint16 ref_count;
     /* types of params and results */
     uint8 types[128];
 } WASMTypeTest;
 
-void
-test_invoke_native()
+int
+test_invoke_native(void)
 {
     uint32 argv[128], *p = argv;
-    WASMTypeTest func_type1 = { 20, 0, 0, 0, { I32, I64, F32, F64, I32,
-                                               I64, I64, I32, F64, F32,
-                                               I32, F64, F32, I64, I64,
-                                               F32, F64, I64, I64, F32 } };
+    WASMTypeTest func_type1 = { 20, 0, 0, 0, 0, { I32, I64, F32, F64, I32,
+                                                  I64, I64, I32, F64, F32,
+                                                  I32, F64, F32, I64, I64,
+                                                  F32, F64, I64, I64, F32 } };
     WASMTypeTest func_type2 = { 19,
+                                0,
                                 0,
                                 0,
                                 0,
                                 { I64, F32, F64, I32, I64, I64, I32, F64, F32,
                                   I32, F64, F32, I64, I64, F32, F64, I64, I64,
                                   F32 } };
-    WASMTypeTest func_type_i32 = { 0, 1, 0, 0, { I32 } };
-    WASMTypeTest func_type_i64 = { 0, 1, 0, 0, { I64 } };
-    WASMTypeTest func_type_f32 = { 0, 1, 0, 0, { F32 } };
-    WASMTypeTest func_type_f64 = { 0, 1, 0, 0, { F64 } };
+    WASMTypeTest func_type_i32 = { 0, 1, 0, 0, 0, { I32 } };
+    WASMTypeTest func_type_i64 = { 0, 1, 0, 0, 0, { I64 } };
+    WASMTypeTest func_type_f32 = { 0, 1, 0, 0, 0, { F32 } };
+    WASMTypeTest func_type_f64 = { 0, 1, 0, 0, 0, { F64 } };
     WASMModuleInstance module_inst = { 0 };
     WASMExecEnv exec_env = { 0 };
+
+    test_failed = false;
 
     module_inst.module_type = Wasm_Module_Bytecode;
     exec_env.module_inst = (WASMModuleInstanceCommon *)&module_inst;
@@ -187,20 +217,30 @@ test_invoke_native()
                                (WASMType *)&func_type_i32, NULL, NULL, NULL, 0,
                                argv);
     printf("test_return_i32: 0x%X\n\n", argv[0]);
+    if (argv[0] != 0x12345678)
+        test_failed = true;
 
     wasm_runtime_invoke_native(&exec_env, test_return_i64,
                                (WASMType *)&func_type_i64, NULL, NULL, NULL, 0,
                                argv);
     printf("test_return_i64: 0x%X%08X\n\n", (int32)((*(int64 *)argv) >> 32),
            (int32)(*(int64 *)argv));
+    if (*(int64 *)argv != 0x12345678ABCDEFFFLL)
+        test_failed = true;
 
     wasm_runtime_invoke_native(&exec_env, test_return_f32,
                                (WASMType *)&func_type_f32, NULL, NULL, NULL, 0,
                                argv);
     printf("test_return_f32: %f\n\n", *(float32 *)argv);
+    if (*(float32 *)argv != 1234.5678f)
+        test_failed = true;
 
     wasm_runtime_invoke_native(&exec_env, test_return_f64,
                                (WASMType *)&func_type_f64, NULL, NULL, NULL, 0,
                                argv);
     printf("test_return_f64: %f\n\n", *(float64 *)argv);
+    if (*(float64 *)argv != 87654321.12345678)
+        test_failed = true;
+
+    return test_failed ? 1 : 0;
 }
