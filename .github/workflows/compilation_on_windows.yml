@@ -138,14 +138,17 @@ jobs:
         include:
           - os: windows-2022
             arch: x64
+            vc_arch: x64
             target: X86_64
             simd: 1
           - os: windows-2022
             arch: Win32
+            vc_arch: x86
             target: X86_32
             simd: 0
           - os: windows-11-arm
             arch: ARM64
+            vc_arch: arm64
             target: AARCH64
             simd: 1
     steps:
@@ -153,11 +156,16 @@ jobs:
         with:
           ref: ${{ env.PR_REF }}
 
+      - name: Set up MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.vc_arch }}
+
       - name: Build native invocation test
         shell: pwsh
         run: |
           cmake -S tests/standalone/test-invoke-native -B build-invoke-native `
-            -A ${{ matrix.arch }} `
+            -G "NMake Makefiles" `
             -DWAMR_BUILD_TARGET=${{ matrix.target }} `
             -DWAMR_BUILD_AOT=0 `
             -DWAMR_BUILD_FAST_INTERP=1 `
@@ -167,7 +175,7 @@ jobs:
           cmake --build build-invoke-native --config Release --parallel 4
 
       - name: Run native invocation test
-        run: .\build-invoke-native\Release\test_invoke_native.exe
+        run: .\build-invoke-native\test_invoke_native.exe
 
   test_invoke_native_mingw:
     name: invoke native (${{ matrix.msystem }}, SIMD=${{ matrix.simd }})
