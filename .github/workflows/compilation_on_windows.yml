@@ -76,6 +76,7 @@ jobs:
         product-mini/platforms/windows/**
         samples/**
         !samples/workload/**
+        tests/standalone/test-invoke-native/**
         tests/wamr-test-suites/**
         wamr-compiler/**
   build_llvm_libraries_on_windows:
@@ -125,6 +126,107 @@ jobs:
           mkdir build && cd build
           cmake .. ${{ matrix.build_options }}
           cmake --build . --config Release --parallel 4
+
+  test_invoke_native_msvc:
+    name: invoke native (MSVC, ${{ matrix.arch }})
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run == 'true' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            arch: x64
+            target: X86_64
+            simd: 1
+          - os: windows-2022
+            arch: Win32
+            target: X86_32
+            simd: 0
+          - os: windows-11-arm
+            arch: ARM64
+            target: AARCH64
+            simd: 1
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ env.PR_REF }}
+
+      - name: Build native invocation test
+        shell: pwsh
+        run: |
+          cmake -S tests/standalone/test-invoke-native -B build-invoke-native `
+            -A ${{ matrix.arch }} `
+            -DWAMR_BUILD_TARGET=${{ matrix.target }} `
+            -DWAMR_BUILD_AOT=0 `
+            -DWAMR_BUILD_FAST_INTERP=1 `
+            -DWAMR_BUILD_SIMD=${{ matrix.simd }} `
+            -DWAMR_BUILD_LIBC_WASI=0 `
+            -DWAMR_DISABLE_HW_BOUND_CHECK=1
+          cmake --build build-invoke-native --config Release --parallel 4
+
+      - name: Run native invocation test
+        run: .\build-invoke-native\Release\test_invoke_native.exe
+
+  test_invoke_native_mingw:
+    name: invoke native (${{ matrix.msystem }}, SIMD=${{ matrix.simd }})
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.run == 'true' }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            msystem: MINGW64
+            target: X86_64
+            simd: 0
+          - os: windows-2022
+            msystem: CLANG64
+            target: X86_64
+            simd: 1
+          - os: windows-2022
+            msystem: MINGW32
+            target: X86_32
+            simd: 0
+          - os: windows-11-arm
+            msystem: CLANGARM64
+            target: AARCH64
+            simd: 0
+          - os: windows-11-arm
+            msystem: CLANGARM64
+            target: AARCH64
+            simd: 1
+    steps:
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+          pacboy: >-
+            toolchain:p
+            cmake:p
+            ninja:p
+
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ env.PR_REF }}
+
+      - name: Build and run native invocation test
+        shell: msys2 {0}
+        run: |
+          cmake -S tests/standalone/test-invoke-native -B build-invoke-native \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DWAMR_BUILD_TARGET=${{ matrix.target }} \
+            -DWAMR_BUILD_AOT=0 \
+            -DWAMR_BUILD_FAST_INTERP=1 \
+            -DWAMR_BUILD_SIMD=${{ matrix.simd }} \
+            -DWAMR_BUILD_LIBC_WASI=0 \
+            -DWAMR_DISABLE_HW_BOUND_CHECK=1
+          cmake --build build-invoke-native --parallel 4
+          ./build-invoke-native/test_invoke_native.exe
 
   build_wamrc:
     needs: [build_llvm_libraries_on_windows]
@@ -236,6 +338,8 @@ jobs:
         gate,
         build_llvm_libraries_on_windows,
         build_iwasm,
+        test_invoke_native_msvc,
+        test_invoke_native_mingw,
         build_wamrc,
         test,
       ]
