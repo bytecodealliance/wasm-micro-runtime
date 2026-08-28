@@ -132,6 +132,10 @@ jobs:
     needs: gate
     if: ${{ !cancelled() && needs.gate.outputs.run == 'true' }}
     runs-on: ${{ matrix.os }}
+    env:
+      # The workflow-level CC is reserved for WASI tests. Leave native
+      # compiler selection to the initialized MSVC environment.
+      CC: ""
     strategy:
       fail-fast: false
       matrix:
@@ -175,6 +179,7 @@ jobs:
           cmake --build build-invoke-native --config Release --parallel 4
 
       - name: Run native invocation test
+        shell: pwsh
         run: .\build-invoke-native\test_invoke_native.exe
 
   test_invoke_native_mingw:
@@ -182,6 +187,10 @@ jobs:
     needs: gate
     if: ${{ !cancelled() && needs.gate.outputs.run == 'true' }}
     runs-on: ${{ matrix.os }}
+    env:
+      # The workflow-level CC is reserved for WASI tests. Let the selected
+      # MSYS2 environment provide its native compiler.
+      CC: ""
     strategy:
       fail-fast: false
       matrix:
