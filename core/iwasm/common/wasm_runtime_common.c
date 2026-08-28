@@ -6037,8 +6037,15 @@ static V128FuncPtr invokeNative_V128 = (V128FuncPtr)(uintptr_t)invokeNative;
 /* NOLINTEND */
 
 #if defined(_WIN32) || defined(_WIN32_)
+#if defined(BUILD_TARGET_AARCH64)
+/* Windows ARM64 has eight independent integer and floating-point argument
+ * registers. Windows x64 instead has four shared positional register slots. */
+#define MAX_REG_FLOATS 8
+#define MAX_REG_INTS 8
+#else
 #define MAX_REG_FLOATS 4
 #define MAX_REG_INTS 4
+#endif
 #else /* else of defined(_WIN32) || defined(_WIN32_) */
 #define MAX_REG_FLOATS 8
 #if defined(BUILD_TARGET_AARCH64) || defined(BUILD_TARGET_RISCV64_LP64D) \
@@ -6091,7 +6098,9 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 #define fps ints
 #endif /* end of BUILD_TARGET_RISCV64_LP64 */
 
-#if defined(_WIN32) || defined(_WIN32_) || defined(BUILD_TARGET_RISCV64_LP64)
+#if (defined(_WIN32) || defined(_WIN32_)    \
+     || defined(BUILD_TARGET_RISCV64_LP64)) \
+    && !defined(BUILD_TARGET_AARCH64)
     /* important difference in calling conventions */
 #define n_fps n_ints
 #else
