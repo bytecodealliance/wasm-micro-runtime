@@ -5984,7 +5984,7 @@ fail:
 #undef v128
 #endif
 
-#if defined(_WIN32) || defined(_WIN32_)
+#ifdef _MSC_VER
 typedef union __declspec(intrin_type) __declspec(align(8)) v128 {
     __int8 m128i_i8[16];
     __int16 m128i_i16[8];

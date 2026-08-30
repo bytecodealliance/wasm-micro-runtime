@@ -14,7 +14,7 @@
 static bool test_failed;
 
 #if WASM_ENABLE_SIMD != 0
-#if defined(_WIN32) || defined(_WIN32_)
+#ifdef _MSC_VER
 typedef union __declspec(intrin_type) __declspec(align(8)) TestV128 {
     __int8 i8[16];
     __int16 i16[8];
