@@ -6000,6 +6000,10 @@ typedef union __declspec(intrin_type) __declspec(align(8)) v128 {
     || defined(BUILD_TARGET_RISCV64_LP64)
 typedef long long v128
     __attribute__((__vector_size__(16), __may_alias__, __aligned__(1)));
+#if defined(__MINGW32__) \
+    && (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64))
+#define MINGW_X64_PASS_V128_BY_REFERENCE
+#endif
 #elif defined(BUILD_TARGET_AARCH64)
 #include <arm_neon.h>
 typedef uint32x4_t __m128i;
@@ -6093,6 +6097,10 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     uint64 *fps;
 #else
     v128 *fps;
+#ifdef MINGW_X64_PASS_V128_BY_REFERENCE
+    v128 *v128_args;
+    uint32 n_v128_args = 0, v128_count = 0;
+#endif
 #endif
 #else /* else of BUILD_TARGET_RISCV64_LP64 */
 #define fps ints
@@ -6110,8 +6118,18 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 #if WASM_ENABLE_SIMD == 0
     argc1 = 1 + MAX_REG_FLOATS + (uint32)func_type->param_count + ext_ret_count;
 #else
+#ifdef MINGW_X64_PASS_V128_BY_REFERENCE
+    for (i = 0; i < func_type->param_count; i++) {
+        if (func_type->types[i] == VALUE_TYPE_V128)
+            v128_count++;
+    }
+    argc1 = MAX_REG_FLOATS * 2 + MAX_REG_INTS
+            + (uint32)func_type->param_count * 2 + ext_ret_count + 1
+            + v128_count * 2;
+#else
     argc1 = 1 + MAX_REG_FLOATS * 2 + (uint32)func_type->param_count * 2
             + ext_ret_count;
+#endif
 #endif
     if (argc1 > sizeof(argv_buf) / sizeof(uint64)) {
         size = sizeof(uint64) * (uint64)argc1;
@@ -6133,6 +6151,12 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     ints = argv1;
 #endif /* end of BUILD_TARGET_RISCV64_LP64 */
     stacks = ints + MAX_REG_INTS;
+#ifdef MINGW_X64_PASS_V128_BY_REFERENCE
+    v128_args = (v128 *)(((uintptr_t)(stacks + func_type->param_count * 2
+                                      + ext_ret_count)
+                          + 15)
+                         & ~(uintptr_t)15);
+#endif
 
     ints[n_ints++] = (uint64)(uintptr_t)exec_env;
 
@@ -6293,6 +6317,14 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 #endif
 #if WASM_ENABLE_SIMD != 0
             case VALUE_TYPE_V128:
+#ifdef MINGW_X64_PASS_V128_BY_REFERENCE
+                v128_args[n_v128_args] = *(v128 *)argv_src;
+                arg_i64 = (uintptr_t)&v128_args[n_v128_args++];
+                if (n_ints < MAX_REG_INTS)
+                    ints[n_ints++] = arg_i64;
+                else
+                    stacks[n_stacks++] = arg_i64;
+#else
                 if (n_fps < MAX_REG_FLOATS) {
                     *(v128 *)&fps[n_fps++] = *(v128 *)argv_src;
                 }
@@ -6300,6 +6332,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                     *(v128 *)&stacks[n_stacks++] = *(v128 *)argv_src;
                     n_stacks++;
                 }
+#endif
                 argv_src += 4;
                 break;
 #endif
