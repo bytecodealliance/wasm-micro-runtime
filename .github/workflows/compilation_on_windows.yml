@@ -175,10 +175,13 @@ jobs:
               -DWAMR_BUILD_TARGET=${{ matrix.target }} `
               -DWAMR_BUILD_AOT=0 `
               -DWAMR_BUILD_FAST_INTERP=1 `
-              -DWAMR_BUILD_SIMD=$simd `
+              "-DWAMR_BUILD_SIMD=${simd}" `
               -DWAMR_BUILD_LIBC_WASI=0 `
               -DWAMR_DISABLE_HW_BOUND_CHECK=1
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            if (-not (Select-String -Path "$buildDir/CMakeCache.txt" -Pattern "^WAMR_BUILD_SIMD:[^=]+=$simd$" -Quiet)) {
+              throw "CMake did not configure WAMR_BUILD_SIMD=$simd"
+            }
             cmake --build $buildDir --config Release --parallel 4
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             & ".\$buildDir\test_invoke_native.exe"
@@ -247,6 +250,7 @@ jobs:
       - name: Build and run native invocation test
         shell: msys2 {0}
         run: |
+          set -euo pipefail
           for simd in ${{ matrix.simd_modes }}; do
             build_dir="build-invoke-native-simd-${simd}"
             cmake -S tests/standalone/test-invoke-native -B "${build_dir}" \
@@ -258,6 +262,7 @@ jobs:
               -DWAMR_BUILD_SIMD="${simd}" \
               -DWAMR_BUILD_LIBC_WASI=0 \
               -DWAMR_DISABLE_HW_BOUND_CHECK=1
+            grep -Eq "^WAMR_BUILD_SIMD:[^=]+=${simd}$" "${build_dir}/CMakeCache.txt"
             cmake --build "${build_dir}" --parallel 4
             "./${build_dir}/test_invoke_native.exe"
           done
