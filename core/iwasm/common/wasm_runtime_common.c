@@ -6000,14 +6000,18 @@ typedef union __declspec(intrin_type) __declspec(align(8)) v128 {
     || defined(BUILD_TARGET_RISCV64_LP64)
 typedef long long v128
     __attribute__((__vector_size__(16), __may_alias__, __aligned__(1)));
-#if defined(__MINGW32__) \
-    && (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64))
-#define MINGW_X64_PASS_V128_BY_REFERENCE
-#endif
 #elif defined(BUILD_TARGET_AARCH64)
 #include <arm_neon.h>
 typedef uint32x4_t __m128i;
 #define v128 __m128i
+#endif
+
+#if (defined(_WIN32) || defined(_WIN32_)) \
+    && (defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64))
+/* The Windows x64 ABI passes 128-bit vector arguments through caller-owned,
+ * 16-byte-aligned storage for both MSVC and MinGW. The return value uses
+ * XMM0. */
+#define WINDOWS_X64_PASS_V128_BY_REFERENCE
 #endif
 
 #endif /* end of WASM_ENABLE_SIMD != 0 */
@@ -6097,7 +6101,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     uint64 *fps;
 #else
     v128 *fps;
-#ifdef MINGW_X64_PASS_V128_BY_REFERENCE
+#ifdef WINDOWS_X64_PASS_V128_BY_REFERENCE
     v128 *v128_args;
     uint32 n_v128_args = 0, v128_count = 0;
 #endif
@@ -6118,7 +6122,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 #if WASM_ENABLE_SIMD == 0
     argc1 = 1 + MAX_REG_FLOATS + (uint32)func_type->param_count + ext_ret_count;
 #else
-#ifdef MINGW_X64_PASS_V128_BY_REFERENCE
+#ifdef WINDOWS_X64_PASS_V128_BY_REFERENCE
     for (i = 0; i < func_type->param_count; i++) {
         if (func_type->types[i] == VALUE_TYPE_V128)
             v128_count++;
@@ -6151,7 +6155,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
     ints = argv1;
 #endif /* end of BUILD_TARGET_RISCV64_LP64 */
     stacks = ints + MAX_REG_INTS;
-#ifdef MINGW_X64_PASS_V128_BY_REFERENCE
+#ifdef WINDOWS_X64_PASS_V128_BY_REFERENCE
     v128_args = (v128 *)(((uintptr_t)(stacks + func_type->param_count * 2
                                       + ext_ret_count)
                           + 15)
@@ -6317,7 +6321,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 #endif
 #if WASM_ENABLE_SIMD != 0
             case VALUE_TYPE_V128:
-#ifdef MINGW_X64_PASS_V128_BY_REFERENCE
+#ifdef WINDOWS_X64_PASS_V128_BY_REFERENCE
                 v128_args[n_v128_args] = *(v128 *)argv_src;
                 arg_i64 = (uintptr_t)&v128_args[n_v128_args++];
                 if (n_ints < MAX_REG_INTS)
