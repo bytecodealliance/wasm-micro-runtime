@@ -5984,17 +5984,12 @@ fail:
 #undef v128
 #endif
 
-#ifdef _MSC_VER
-typedef union __declspec(intrin_type) __declspec(align(8)) v128 {
-    __int8 m128i_i8[16];
-    __int16 m128i_i16[8];
-    __int32 m128i_i32[4];
-    __int64 m128i_i64[2];
-    unsigned __int8 m128i_u8[16];
-    unsigned __int16 m128i_u16[8];
-    unsigned __int32 m128i_u32[4];
-    unsigned __int64 m128i_u64[2];
-} v128;
+#if defined(_MSC_VER) && defined(BUILD_TARGET_AARCH64)
+#include <arm64_neon.h>
+typedef uint32x4_t v128;
+#elif defined(_MSC_VER)
+#include <emmintrin.h>
+typedef __m128i v128;
 #elif defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
     || defined(BUILD_TARGET_RISCV64_LP64D)                         \
     || defined(BUILD_TARGET_RISCV64_LP64)
@@ -6322,7 +6317,7 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 #if WASM_ENABLE_SIMD != 0
             case VALUE_TYPE_V128:
 #ifdef WINDOWS_X64_PASS_V128_BY_REFERENCE
-                v128_args[n_v128_args] = *(v128 *)argv_src;
+                memcpy(&v128_args[n_v128_args], argv_src, sizeof(v128));
                 arg_i64 = (uintptr_t)&v128_args[n_v128_args++];
                 if (n_ints < MAX_REG_INTS)
                     ints[n_ints++] = arg_i64;
@@ -6330,11 +6325,15 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
                     stacks[n_stacks++] = arg_i64;
 #else
                 if (n_fps < MAX_REG_FLOATS) {
-                    *(v128 *)&fps[n_fps++] = *(v128 *)argv_src;
+                    memcpy(&fps[n_fps++], argv_src, sizeof(v128));
                 }
                 else {
-                    *(v128 *)&stacks[n_stacks++] = *(v128 *)argv_src;
-                    n_stacks++;
+#if defined(BUILD_TARGET_AARCH64)
+                    /* Stacked short vectors require 16-byte alignment. */
+                    n_stacks = (n_stacks + 1) & ~1U;
+#endif
+                    memcpy(&stacks[n_stacks], argv_src, sizeof(v128));
+                    n_stacks += 2;
                 }
 #endif
                 argv_src += 4;
@@ -6423,9 +6422,11 @@ wasm_runtime_invoke_native(WASMExecEnv *exec_env, void *func_ptr,
 #endif
 #if WASM_ENABLE_SIMD != 0
             case VALUE_TYPE_V128:
-                *(v128 *)argv_ret =
-                    invokeNative_V128(func_ptr, argv1, n_stacks);
+            {
+                v128 result = invokeNative_V128(func_ptr, argv1, n_stacks);
+                memcpy(argv_ret, &result, sizeof(result));
                 break;
+            }
 #endif
             default:
                 bh_assert(0);

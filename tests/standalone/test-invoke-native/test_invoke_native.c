@@ -14,17 +14,12 @@
 static bool test_failed;
 
 #if WASM_ENABLE_SIMD != 0
-#ifdef _MSC_VER
-typedef union __declspec(intrin_type) __declspec(align(8)) TestV128 {
-    __int8 i8[16];
-    __int16 i16[8];
-    __int32 i32[4];
-    __int64 i64[2];
-    unsigned __int8 u8[16];
-    unsigned __int16 u16[8];
-    unsigned __int32 u32[4];
-    unsigned __int64 u64[2];
-} TestV128;
+#if defined(_MSC_VER) && defined(BUILD_TARGET_AARCH64)
+#include <arm64_neon.h>
+typedef uint32x4_t TestV128;
+#elif defined(_MSC_VER)
+#include <emmintrin.h>
+typedef __m128i TestV128;
 #elif defined(BUILD_TARGET_X86_64) || defined(BUILD_TARGET_AMD_64) \
     || defined(BUILD_TARGET_RISCV64_LP64D)                         \
     || defined(BUILD_TARGET_RISCV64_LP64)
@@ -63,6 +58,25 @@ test_native_v128(WASMModuleInstance *module_inst, TestV128 arg0, TestV128 arg1,
         test_failed = true;
     }
     return arg8;
+}
+/* Exhaust both register classes, then put a vector after one stacked i64.
+ * ARM64 must add padding before that vector; x64 must pass its address. */
+static TestV128
+test_native_v128_mixed(WASMModuleInstance *module_inst, TestV128 arg0,
+                       TestV128 arg1, TestV128 arg2, TestV128 arg3,
+                       TestV128 arg4, TestV128 arg5, TestV128 arg6,
+                       TestV128 arg7, uint64 int0, uint64 int1, uint64 int2,
+                       uint64 int3, uint64 int4, uint64 int5, uint64 int6,
+                       uint64 int7, TestV128 arg8)
+{
+    if (int0 != 0x1000 || int1 != 0x2000 || int2 != 0x3000 || int3 != 0x4000
+        || int4 != 0x5000 || int5 != 0x6000 || int6 != 0x7000
+        || int7 != 0x8000) {
+        printf("test_native_v128_mixed integer validation failed\n");
+        test_failed = true;
+    }
+    return test_native_v128(module_inst, arg0, arg1, arg2, arg3, arg4, arg5,
+                            arg6, arg7, arg8);
 }
 #endif /* WASM_ENABLE_SIMD != 0 */
 
@@ -286,7 +300,19 @@ test_invoke_native(void)
         { V128_TYPE, V128_TYPE, V128_TYPE, V128_TYPE, V128_TYPE, V128_TYPE,
           V128_TYPE, V128_TYPE, V128_TYPE, V128_TYPE }
     };
-    uint32 v128_argv[9 * 4];
+    WASMTypeTest func_type_v128_mixed = {
+        17,
+        1,
+        52,
+        4,
+        0,
+        { V128_TYPE, V128_TYPE, V128_TYPE, V128_TYPE, V128_TYPE, V128_TYPE,
+          V128_TYPE, V128_TYPE, I64, I64, I64, I64, I64, I64, I64, I64,
+          V128_TYPE, V128_TYPE }
+    };
+    /* The wasm argument/result buffers need not be vector-aligned. */
+    uint32 v128_buf[9 * 4 + 1], *v128_argv = v128_buf + 1;
+    uint32 mixed_buf[52 + 1], *mixed_argv = mixed_buf + 1;
     uint32 i, j;
 #endif
     WASMModuleInstance module_inst = { 0 };
@@ -412,6 +438,27 @@ test_invoke_native(void)
             break;
         }
     }
+    for (i = 0; i < 8; i++) {
+        for (j = 0; j < 4; j++)
+            mixed_argv[i * 4 + j] = (i + 1) * 0x100 + j;
+        test_store_i64(mixed_argv + 32 + i * 2, (i + 1) * 0x1000);
+    }
+    for (j = 0; j < 4; j++)
+        mixed_argv[48 + j] = 0x900 + j;
+    if (!wasm_runtime_invoke_native(&exec_env, test_native_v128_mixed,
+                                    (WASMType *)&func_type_v128_mixed, NULL,
+                                    NULL, mixed_argv, 52, v128_argv)) {
+        printf("test_native_v128_mixed invocation failed\n");
+        test_failed = true;
+    }
+    for (i = 0; i < 4; i++) {
+        if (v128_argv[i] != 0x900 + i) {
+            printf("test_native_v128_mixed return validation failed\n");
+            test_failed = true;
+            break;
+        }
+    }
+
 #endif
 
     return test_failed ? 1 : 0;
