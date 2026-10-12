@@ -532,7 +532,18 @@ The SIMDe library is pulled in automatically when both `WAMR_BUILD_SIMD` and `WA
 - **WAMR_BUILD_ALLOC_WITH_USER_DATA**=1/0, default to off.
 
 > [!NOTE]
-> By default, the system allocates linear memory. With this on and `Alloc_With_Allocator` selected, you can provide your own allocator.
+> `mem_alloc_type_t` decides where the memory used by the runtime and by wasm applications comes from. `Alloc_With_Allocator` hands the memory management over to the embedder, out of the runtime's control. `WAMR_BUILD_ALLOC_WITH_USAGE` passes `mem_alloc_usage_t` (`Alloc_For_Runtime` or `Alloc_For_LinearMemory`) to the allocator, so the allocator can tell the caller scenario apart.
+
+> [!WARNING]
+> This is a [privileged feature](#privileged-features).
+>
+> Enabling `WAMR_BUILD_ALLOC_WITH_USAGE` replaces the hardware bound check with a customized bound check provided by the embedder. The runtime does not pass `map_size` to the allocator. Using this option requires the embedder to guarantee:
+> - `Alloc_With_Allocator` is selected, and `malloc_func`, `realloc_func` and `free_func` are all non-`NULL`.
+> - Out-of-bounds linear memory access cannot reach host memory, for example by reserving the full 8 GB range behind each linear memory, or by providing equivalent checks.
+> - Memory returned by `malloc_func` and `realloc_func` is zero-filled. Size validation is the allocator's responsibility, and `NULL` means allocation failure.
+> - AOT modules are covered by the same requirement: `wamrc` omits boundary check instructions for 64-bit targets, so they rely on the embedder's bound check as well.
+>
+> The build emits a warning when this option is enabled while the hardware bound check is active.
 
 ### **running PGO(Profile-Guided Optimization) instrumented AOT file**
 

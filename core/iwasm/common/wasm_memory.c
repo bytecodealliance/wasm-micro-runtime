@@ -2062,11 +2062,21 @@ wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
                             uint64 init_page_count, uint64 max_page_count,
                             uint64 *memory_data_size)
 {
-    uint64 map_size, page_size;
+    uint64 page_size;
+#if WASM_MEM_ALLOC_WITH_USAGE == 0
+    uint64 map_size;
+#endif
 
     bh_assert(data);
     bh_assert(memory_data_size);
 
+    page_size = os_getpagesize();
+    *memory_data_size = init_page_count * num_bytes_per_page;
+
+    bh_assert(*memory_data_size <= GET_MAX_LINEAR_MEMORY_SIZE(is_memory64));
+    *memory_data_size = align_as_and_cast(*memory_data_size, page_size);
+
+#if WASM_MEM_ALLOC_WITH_USAGE == 0
 #ifndef OS_ENABLE_HW_BOUND_CHECK
 #if WASM_ENABLE_SHARED_MEMORY != 0
     if (is_shared_memory) {
@@ -2087,15 +2097,16 @@ wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
     map_size = 8 * (uint64)BH_GB;
 #endif /* end of OS_ENABLE_HW_BOUND_CHECK */
 
-    page_size = os_getpagesize();
-    *memory_data_size = init_page_count * num_bytes_per_page;
-
-    bh_assert(*memory_data_size <= GET_MAX_LINEAR_MEMORY_SIZE(is_memory64));
-    *memory_data_size = align_as_and_cast(*memory_data_size, page_size);
-
     if (map_size > 0) {
-#if WASM_MEM_ALLOC_WITH_USAGE != 0
-        (void)wasm_mmap_linear_memory;
+        if (!(*data = wasm_mmap_linear_memory(map_size, *memory_data_size))) {
+            return BHT_ERROR;
+        }
+    }
+#else /* else of WASM_MEM_ALLOC_WITH_USAGE == 0 */
+    /* The user allocator owns the linear memory and its bound check, the
+       runtime does not reserve map_size, see WASM_MEM_ALLOC_WITH_USAGE */
+    (void)wasm_mmap_linear_memory;
+    if (init_page_count > 0) {
         if (!(*data = malloc_func(Alloc_For_LinearMemory,
 #if WASM_MEM_ALLOC_WITH_USER_DATA != 0
                                   allocator_user_data,
@@ -2103,12 +2114,8 @@ wasm_allocate_linear_memory(uint8 **data, bool is_shared_memory,
                                   *memory_data_size))) {
             return BHT_ERROR;
         }
-#else
-        if (!(*data = wasm_mmap_linear_memory(map_size, *memory_data_size))) {
-            return BHT_ERROR;
-        }
-#endif
     }
+#endif /* end of WASM_MEM_ALLOC_WITH_USAGE == 0 */
 
     /*
      * AOT compiler assumes at least 8 byte alignment.
