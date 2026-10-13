@@ -174,80 +174,59 @@ test_return_f64(WASMModuleInstance *module_inst)
     return 87654321.12345678;
 }
 
-static void
-test_store_i64(uint32 *addr, uint64 value)
-{
-    union {
-        uint64 val;
-        uint32 parts[2];
-    } u;
+#define STORE_I64(addr, value)  \
+    do {                        \
+        union {                 \
+            int64 val;          \
+            uint32 parts[2];    \
+        } u;                    \
+        u.val = (int64)(value); \
+        (addr)[0] = u.parts[0]; \
+        (addr)[1] = u.parts[1]; \
+    } while (0)
 
-    u.val = value;
-    addr[0] = u.parts[0];
-    addr[1] = u.parts[1];
-}
+#define STORE_F64(addr, value)  \
+    do {                        \
+        union {                 \
+            float64 val;        \
+            uint32 parts[2];    \
+        } u;                    \
+        u.val = (value);        \
+        (addr)[0] = u.parts[0]; \
+        (addr)[1] = u.parts[1]; \
+    } while (0)
 
 static void
 test_store_f32(uint32 *addr, float32 value)
 {
-    union {
-        float32 val;
-        uint32 part;
-    } u;
-
-    u.val = value;
-    addr[0] = u.part;
-}
-
-static void
-test_store_f64(uint32 *addr, float64 value)
-{
-    union {
-        float64 val;
-        uint32 parts[2];
-    } u;
-
-    u.val = value;
-    addr[0] = u.parts[0];
-    addr[1] = u.parts[1];
+    memcpy(addr, &value, sizeof(value));
 }
 
 static int64
 test_load_i64(const uint32 *addr)
 {
-    union {
-        int64 val;
-        uint32 parts[2];
-    } u;
+    int64 value;
 
-    u.parts[0] = addr[0];
-    u.parts[1] = addr[1];
-    return u.val;
+    memcpy(&value, addr, sizeof(value));
+    return value;
 }
 
 static float32
 test_load_f32(const uint32 *addr)
 {
-    union {
-        float32 val;
-        uint32 part;
-    } u;
+    float32 value;
 
-    u.part = addr[0];
-    return u.val;
+    memcpy(&value, addr, sizeof(value));
+    return value;
 }
 
 static float64
 test_load_f64(const uint32 *addr)
 {
-    union {
-        float64 val;
-        uint32 parts[2];
-    } u;
+    float64 value;
 
-    u.parts[0] = addr[0];
-    u.parts[1] = addr[1];
-    return u.val;
+    memcpy(&value, addr, sizeof(value));
+    return value;
 }
 
 #define I32 VALUE_TYPE_I32
@@ -311,8 +290,8 @@ test_invoke_native(void)
           V128_TYPE, V128_TYPE }
     };
     /* The wasm argument/result buffers need not be vector-aligned. */
-    uint32 v128_buf[9 * 4 + 1], *v128_argv = v128_buf + 1;
-    uint32 mixed_buf[52 + 1], *mixed_argv = mixed_buf + 1;
+    ALIGNED_(16) uint32 v128_buf[9 * 4 + 1], mixed_buf[52 + 1];
+    uint32 *v128_argv = v128_buf + 1, *mixed_argv = mixed_buf + 1;
     uint32 i, j;
 #endif
     WASMModuleInstance module_inst = { 0 };
@@ -324,38 +303,38 @@ test_invoke_native(void)
     exec_env.module_inst = (WASMModuleInstanceCommon *)&module_inst;
 
     *p++ = 0x12345678;
-    test_store_i64(p, 0xFFFFFFFF87654321ULL);
+    STORE_I64(p, 0xFFFFFFFF87654321ULL);
     p += 2;
     test_store_f32(p++, 1234.5678f);
-    test_store_f64(p, 567890.1234);
+    STORE_F64(p, 567890.1234);
     p += 2;
 
     *p++ = 0x11111111;
-    test_store_i64(p, 0xAAAAAAAABBBBBBBBULL);
+    STORE_I64(p, 0xAAAAAAAABBBBBBBBULL);
     p += 2;
-    test_store_i64(p, 0x7788888899ULL);
+    STORE_I64(p, 0x7788888899ULL);
     p += 2;
     *p++ = 0x3456;
 
-    test_store_f64(p, 8888.7777);
+    STORE_F64(p, 8888.7777);
     p += 2;
     test_store_f32(p++, 7777.8888f);
     *p++ = 0x66666;
-    test_store_f64(p, 999999.88888);
+    STORE_F64(p, 999999.88888);
     p += 2;
 
     test_store_f32(p++, 555555.22f);
-    test_store_i64(p, 0xBBBBBAAAAAAAAULL);
+    STORE_I64(p, 0xBBBBBAAAAAAAAULL);
     p += 2;
-    test_store_i64(p, 0x3333AAAABBBBULL);
+    STORE_I64(p, 0x3333AAAABBBBULL);
     p += 2;
     test_store_f32(p++, 88.77f);
 
-    test_store_f64(p, 9999.01234);
+    STORE_F64(p, 9999.01234);
     p += 2;
-    test_store_i64(p, 0x1111122222222ULL);
+    STORE_I64(p, 0x1111122222222ULL);
     p += 2;
-    test_store_i64(p, 0x444455555555ULL);
+    STORE_I64(p, 0x444455555555ULL);
     p += 2;
     test_store_f32(p++, 77.88f);
 
@@ -441,7 +420,7 @@ test_invoke_native(void)
     for (i = 0; i < 8; i++) {
         for (j = 0; j < 4; j++)
             mixed_argv[i * 4 + j] = (i + 1) * 0x100 + j;
-        test_store_i64(mixed_argv + 32 + i * 2, (i + 1) * 0x1000);
+        STORE_I64(mixed_argv + 32 + i * 2, (i + 1) * 0x1000);
     }
     for (j = 0; j < 4; j++)
         mixed_argv[48 + j] = 0x900 + j;

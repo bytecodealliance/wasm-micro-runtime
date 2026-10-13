@@ -6039,17 +6039,12 @@ static V128FuncPtr invokeNative_V128 = (V128FuncPtr)(uintptr_t)invokeNative;
 #endif
 /* NOLINTEND */
 
-#if defined(_WIN32) || defined(_WIN32_)
-#if defined(BUILD_TARGET_AARCH64)
-/* Windows ARM64 has eight independent integer and floating-point argument
- * registers. Windows x64 instead has four shared positional register slots. */
-#define MAX_REG_FLOATS 8
-#define MAX_REG_INTS 8
-#else
+#if (defined(_WIN32) || defined(_WIN32_)) && !defined(BUILD_TARGET_AARCH64)
+/* Windows x64 shares four positional register slots. ARM64 has eight
+ * independent integer and floating-point argument registers. */
 #define MAX_REG_FLOATS 4
 #define MAX_REG_INTS 4
-#endif
-#else /* else of defined(_WIN32) || defined(_WIN32_) */
+#else
 #define MAX_REG_FLOATS 8
 #if defined(BUILD_TARGET_AARCH64) || defined(BUILD_TARGET_RISCV64_LP64D) \
     || defined(BUILD_TARGET_RISCV64_LP64)
@@ -6059,7 +6054,7 @@ static V128FuncPtr invokeNative_V128 = (V128FuncPtr)(uintptr_t)invokeNative;
 #endif /* end of defined(BUILD_TARGET_AARCH64)   \
           || defined(BUILD_TARGET_RISCV64_LP64D) \
           || defined(BUILD_TARGET_RISCV64_LP64) */
-#endif /* end of defined(_WIN32) || defined(_WIN32_) */
+#endif
 
 /*
  * ASAN is not designed to work with custom stack unwind or other low-level

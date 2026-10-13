@@ -8,6 +8,7 @@
 uint64
 os_time_get_boot_us()
 {
+#if defined(__MINGW32__)
     FILETIME file_time;
     ULARGE_INTEGER time;
 
@@ -17,6 +18,11 @@ os_time_get_boot_us()
 
     /* FILETIME is in 100-nanosecond intervals since January 1, 1601. */
     return (time.QuadPart - 116444736000000000ULL) / 10;
+#else
+    struct timespec ts;
+    timespec_get(&ts, TIME_UTC);
+    return ((uint64)ts.tv_sec) * 1000 * 1000 + ((uint64)ts.tv_nsec) / 1000;
+#endif
 }
 
 uint64
