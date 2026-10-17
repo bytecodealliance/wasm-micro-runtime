@@ -9,7 +9,6 @@ endif()
 set(WAMR_BUILD_LIBC_WASI 1)
 set(WAMR_BUILD_MEMORY64 1)
 set(WAMR_BUILD_SHARED_MEMORY 1)
-set(WAMR_BUILD_MULTI_MEMORY 1)
 
 include(../unit_common.cmake)
 
@@ -47,7 +46,6 @@ set(_generated_wasm_fixtures
     ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps/page_exceed_u32.wat|${CMAKE_CURRENT_BINARY_DIR}/page_exceed_u32.wasm
     ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps/page_exceed_u32_2.wat|${CMAKE_CURRENT_BINARY_DIR}/page_exceed_u32_2.wasm
     ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps/page_u32_max.wat|${CMAKE_CURRENT_BINARY_DIR}/page_u32_max.wasm
-    ${CMAKE_CURRENT_SOURCE_DIR}/wasm-apps/regression_4935_multi_memory_data_segment.wat|${CMAKE_CURRENT_BINARY_DIR}/regression_4935_multi_memory_data_segment.wasm
 )
 foreach(_fixture IN LISTS _generated_wasm_fixtures)
     string(REPLACE "|" ";" _fixture_parts "${_fixture}")
