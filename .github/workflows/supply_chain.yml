@@ -13,7 +13,7 @@ on:
   # https://github.com/ossf/scorecard/blob/main/docs/checks.md#maintained
   # midnight UTC
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "17 3 * * *"
   # allow to be triggered manually
   workflow_dispatch:
 
@@ -21,20 +21,27 @@ on:
 permissions:
   contents: read
 
+# Avoid overlapping runs (e.g. manual dispatch during a scheduled run).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   analysis:
     name: Scorecard analysis
-    runs-on: ubuntu-latest
-    if: github.repository == 'wasm-micro-runtime/wasm-micro-runtime'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    # Skip forks: they cannot publish results or upload to code-scanning.
+    if: github.event.repository.fork == false
     permissions:
       # Needed to upload the results to code-scanning dashboard.
       security-events: write
       # Needed to publish results and get a badge (see publish_results below).
-      id-token: write      
+      id-token: write
 
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v3.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -46,20 +53,11 @@ jobs:
 
           #   - Publish results to OpenSSF REST API for easy access by consumers
           #   - Allows the repository to include the Scorecard badge.
-          #   - See https://github.com/ossf/scorecard-action#publishing-results.      
+          #   - See https://github.com/ossf/scorecard-action#publishing-results.
           publish_results: true
-
-      # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
-      # format to the repository Actions tab.
-      - name: "Upload artifact"
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v3.1.0
-        with:
-          name: SARIF file
-          path: results.sarif
-          retention-days: 5
 
       # Upload the results to GitHub's code scanning dashboard.
       - name: "Upload to code-scanning"
-        uses: github/codeql-action/upload-sarif@61817fadad823920a8924645dd5f67985d6a1d94 
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
           sarif_file: results.sarif
