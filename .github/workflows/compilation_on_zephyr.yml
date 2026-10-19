@@ -110,7 +110,7 @@ jobs:
       # fresh clone of main.
 
       - name: Checkout code
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.PR_REF }}
           path: modules/wasm-micro-runtime
@@ -134,7 +134,7 @@ jobs:
           printf '[manifest]\nproject-filter = -wasm-micro-runtime\n' >> ~/.westconfig
 
       - name: Setup Zephyr project
-        uses: zephyrproject-rtos/action-zephyr-setup@v1
+        uses: zephyrproject-rtos/action-zephyr-setup@be8136a8bba01580485d98b7ad2d32477c36a49a # v1
         with:
           app-path: application
           manifest-file-name: west.yml
@@ -224,7 +224,7 @@ jobs:
 
       - name: Upload native simulator coverage
         if: ${{ always() && github.event.repository.fork == true }}
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: zephyr-wamr-smoke-coverage-native-sim
           path: |
