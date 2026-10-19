@@ -53,7 +53,7 @@ jobs:
       # referenced; fetch just .github (also carries the path-filter helper).
       # The path-filter helper lives under .github; fetch just that.
       - name: checkout workflow metadata
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           sparse-checkout: .github
           sparse-checkout-cone-mode: false

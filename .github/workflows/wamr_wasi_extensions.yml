@@ -66,7 +66,7 @@ jobs:
         os: [ubuntu-22.04, macos-15-intel, macos-15]
     steps:
       - name: checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.PR_REF }}
 
@@ -89,7 +89,7 @@ jobs:
       #CLARIFY: Require to upload artifact on ARM macOS?
       - name: Upload artifacts
         if: matrix.os == 'macos-15'
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wamr-wasi-extensions
           path: wamr-wasi-extensions/dist

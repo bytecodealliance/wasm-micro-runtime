@@ -84,7 +84,7 @@ jobs:
     steps:
       - name: Restore or seed the bloaty cache
         id: cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: bloaty-bin
           key: bloaty-${{ env.BLOATY_REF }}-ubuntu-latest
@@ -99,7 +99,7 @@ jobs:
 
       - name: Checkout Bloaty
         if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: google/bloaty
           submodules: recursive
@@ -164,28 +164,28 @@ jobs:
           df -h /
 
       - name: Checkout NuttX
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: apache/nuttx
           ref: 09a71ec7c16c43398d5acbdcbeee7b08736c3170
           path: nuttx
 
       - name: Checkout NuttX Apps
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: apache/nuttx-apps
           ref: 6bd593459c4af3cef325c3d22bccd5537a8ed755
           path: apps
 
       - name: Checkout WAMR
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ github.repository }}
           ref: ${{ env.PR_REF }}
           path: apps/interpreters/wamr/wamr
 
       - name: Restore prebuilt bloaty
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: bloaty-bin
           key: bloaty-${{ env.BLOATY_REF }}-ubuntu-latest
