@@ -130,7 +130,6 @@ jobs:
     runs-on: ubuntu-22.04
     permissions:
       contents: read
-      actions: write
     steps:
       - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -151,7 +150,6 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      actions: write
     steps:
       - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -180,7 +178,6 @@ jobs:
       ZEPHYR_TOOLCHAINS: "arc-zephyr-elf:arc64-zephyr-elf:x86_64-zephyr-elf"
     permissions:
       contents: read
-      actions: write
     container:
       image: ghcr.io/zephyrproject-rtos/ci-base:v0.26-branch
       options: --user root

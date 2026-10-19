@@ -37,6 +37,9 @@ env:
   # so checkout falls back to the event's default ref.
   PR_REF: ${{ (github.event_name == 'pull_request_review' || github.event_name == 'pull_request') && format('refs/pull/{0}/merge', github.event.pull_request.number) || '' }}
 
+permissions:
+  contents: read
+
 jobs:
   # Gate upstream minutes: always runs (a few-second no-op) and outputs `run`,
   # "true" only for a fork push or a PR's first approval. It must NOT be
