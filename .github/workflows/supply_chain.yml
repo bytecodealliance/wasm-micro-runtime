@@ -27,12 +27,60 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Skip the daily cron when the default branch has not moved in the last 24h:
+  # the score cannot change without new commits. Other events always run.
+  scorecard_guard:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      run: ${{ steps.guard.outputs.run }}
+    steps:
+      - name: Decide whether the scorecard should run
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Every early exit (and the final fall-through) writes an
+          # annotation so the guard decision is visible in the run UI.
+          set_run() {
+            local run="$1"
+            local message="$2"
+            echo "run=$run" >> "$GITHUB_OUTPUT"
+            echo "::notice title=scorecard guard::$message"
+          }
+
+          # Non-schedule events (workflow_dispatch, branch_protection_rule)
+          # always run; only the daily cron is skippable.
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            set_run true "running: ${{ github.event_name }} event is not the daily cron, guard does not apply"
+            exit 0
+          fi
+
+          # Skip when the default branch has not moved in the last 24h. A failed
+          # API/date lookup is treated as "assume activity" so a transient API
+          # error can never silently skip the scan (fail open).
+          last_commit_ts=$(gh api \
+            "repos/$GITHUB_REPOSITORY/commits/${{ github.event.repository.default_branch }}" \
+            --jq '.commit.committer.date' 2>/dev/null || true)
+          last_ts=""
+          if [ -n "$last_commit_ts" ]; then
+            last_ts=$(date -u -d "$last_commit_ts" +%s 2>/dev/null || true)
+          fi
+          if [ -n "$last_ts" ] && [ "$last_ts" -lt "$(date -u -d '24 hours ago' +%s)" ]; then
+            set_run false "skipping: no commits on the default branch in the last 24 hours"
+            exit 0
+          fi
+          set_run true "running: scheduled scorecard"
+
   analysis:
     name: Scorecard analysis
+    needs: scorecard_guard
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     # Skip forks: they cannot publish results or upload to code-scanning.
-    if: github.event.repository.fork == false
+    if: ${{ !cancelled() && github.event.repository.fork == false && needs.scorecard_guard.outputs.run == 'true' }}
     permissions:
       # Needed to upload the results to code-scanning dashboard.
       security-events: write
