@@ -166,19 +166,31 @@ typedef enum {
 
 #ifndef MEM_ALLOC_OPTION_DEFINED
 #define MEM_ALLOC_OPTION_DEFINED
-/* Memory allocator type */
+/* Memory allocator type, decides where the memory resources used by the
+   runtime itself and by wasm applications come from */
 typedef enum {
     /* pool mode, allocate memory from user defined heap buffer */
     Alloc_With_Pool = 0,
-    /* user allocator mode, allocate memory from user defined
-       malloc function */
+    /* user allocator mode, memory is managed by the user and is out of the
+       runtime's control, allocate memory from user defined malloc function.
+       With WASM_MEM_ALLOC_WITH_USAGE defined, the hardware bound check of
+       linear memory is replaced by the user's own check, so the user must
+       provide one or use software bound checks
+       (WAMR_DISABLE_HW_BOUND_CHECK=1) */
     Alloc_With_Allocator,
     /* system allocator mode, allocate memory from system allocator,
        or, platform's os_malloc function */
     Alloc_With_System_Allocator,
 } mem_alloc_type_t;
 
-typedef enum { Alloc_For_Runtime, Alloc_For_LinearMemory } mem_alloc_usage_t;
+/* Memory allocation usage, passed to the user allocator when
+   WASM_MEM_ALLOC_WITH_USAGE is defined, to tell the caller scenario apart */
+typedef enum {
+    /* memory requested by the runtime itself */
+    Alloc_For_Runtime,
+    /* memory requested for wasm linear memory */
+    Alloc_For_LinearMemory,
+} mem_alloc_usage_t;
 
 /* Memory allocator option */
 typedef union MemAllocOption {
