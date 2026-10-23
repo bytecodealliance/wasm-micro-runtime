@@ -123,6 +123,7 @@ set(UNIT_TEST_SUITES
   interpreter
   wasm-c-api
   libc-builtin
+  libc-wasi
   shared-utils
   linear-memory-wasm
   linear-memory-aot
