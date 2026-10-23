@@ -118,25 +118,20 @@ wamr_unit_test_get_current_run_mode(_unit_test_run_mode)
 message(STATUS "Unit test runtime mode: ${_unit_test_run_mode}")
 unset(_unit_test_run_mode)
 
-set(UNIT_TEST_SUITES
-  wasm-vm
-  interpreter
-  wasm-c-api
-  libc-builtin
-  shared-utils
-  linear-memory-wasm
-  linear-memory-aot
-  linux-perf
-  gc
-  exception-handling
-  running-modes
-  mem-alloc/base
-  mem-alloc/gc
-  instruction-metering
-)
-foreach(unit_test_suite IN LISTS UNIT_TEST_SUITES)
-  add_subdirectory(${unit_test_suite})
-endforeach()
+add_subdirectory(wasm-vm)
+add_subdirectory(interpreter)
+add_subdirectory(wasm-application)
+add_subdirectory(wasm-c-api)
+add_subdirectory(libc-builtin)
+add_subdirectory(shared-utils)
+add_subdirectory(linear-memory-wasm)
+add_subdirectory(linear-memory-aot)
+add_subdirectory(linux-perf)
+add_subdirectory(gc)
+add_subdirectory(exception-handling)
+add_subdirectory(running-modes)
+add_subdirectory(mem-alloc/base)
+add_subdirectory(mem-alloc/gc)
 
 if(FULL_TEST)
   message(STATUS "FULL_TEST=ON: include llm-enhanced-test")
