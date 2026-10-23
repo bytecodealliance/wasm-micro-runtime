@@ -8,3 +8,12 @@ project(wamr_thread_pool_tests)
 target_include_directories(app PRIVATE ../common)
 target_sources(app PRIVATE src/test_thread_pool.c
                            ../common/runtime_user_workflow.c)
+
+if(CONFIG_WAMR_TEST_USER_MODE)
+  set(WAMR_BUILD_TARGET ARC)
+  set(WAMR_BUILD_INTERP 1)
+  set(WAMR_BUILD_AOT 0)
+  set(WAMR_BUILD_GLOBAL_HEAP_POOL 1)
+  add_subdirectory(../../user-mode/lib-wamr-zephyr lib-wamr-zephyr)
+  target_link_libraries(app PRIVATE wamr_lib)
+endif()
