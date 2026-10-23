@@ -62,7 +62,8 @@ To omit conditions, use literal `0`, or set both `condvars = NULL` and
 `condvar_count = 0` in a manual descriptor; `os_cond_init()` then returns
 `BHT_ERROR`. This budget is configuration-specific: more heaps or threading may
 need more slots. Exhaustion propagates an initialization error through WAMR;
-there is no fallback allocation.
+there is no fallback allocation. See the
+[multithreaded sample](../user-mode-multi-thread/README.md) for larger pools.
 
 ### Advantage of using WAMR runtime in Zephyr user mode thread
 
